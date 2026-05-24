@@ -102,7 +102,7 @@ function SignInScreen() {
         </div>
 
         {/* System status row */}
-        <div className="flex items-center gap-4 animate-intro-in" style={{ animationDelay: '220ms' }}>
+        <div className="w-full flex justify-center items-center gap-4 animate-intro-in" style={{ animationDelay: '220ms' }}>
           {[
             { dot: 'bg-nerve-success', label: 'SRE ENGINE', status: 'ONLINE' },
             { dot: 'bg-nerve-accent', label: 'AI MODEL', status: 'READY' },
