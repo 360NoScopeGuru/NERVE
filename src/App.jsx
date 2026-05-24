@@ -60,16 +60,22 @@ export default function App() {
     <div className="h-screen bg-nerve-bg text-nerve-text flex flex-col overflow-hidden font-['Inter',sans-serif]">
       {/* Header */}
       <header className="flex-shrink-0 border-b border-nerve-border bg-nerve-panel px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="relative w-6 h-6">
-              <div className="absolute inset-0 rounded bg-nerve-accent/20 border border-nerve-accent/40" />
-              <div className="absolute inset-1 rounded-sm bg-nerve-accent/80" />
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {/* Logo mark */}
+            <div className="relative w-8 h-8 flex-shrink-0">
+              <div className="absolute inset-0 rounded bg-nerve-critical/10 border border-nerve-critical/40" style={{ boxShadow: '0 0 12px rgba(255,42,42,0.25)' }} />
+              <div className="absolute inset-[3px] rounded-sm bg-nerve-critical/70" style={{ boxShadow: '0 0 8px rgba(255,42,42,0.4)' }} />
+              <div className="absolute inset-[6px] rounded-sm bg-nerve-bg" />
             </div>
-            <span className="font-mono font-bold text-lg tracking-widest text-nerve-text">NERVE</span>
+            {/* Wordmark */}
+            <div className="flex flex-col leading-none">
+              <span className="font-mono font-black text-2xl tracking-[0.2em] text-nerve-text" style={{ letterSpacing: '0.25em', textShadow: '0 0 20px rgba(255,42,42,0.3)' }}>NERVE</span>
+              <span className="text-[9px] font-mono uppercase tracking-[0.3em] text-nerve-critical/70 mt-0.5">Incident Analyzer</span>
+            </div>
           </div>
-          <div className="h-4 w-px bg-nerve-border" />
-          <span className="text-xs font-mono text-nerve-muted">Incident Root Cause Analyzer</span>
+          <div className="h-6 w-px bg-nerve-border" />
+          <span className="text-[11px] font-mono text-nerve-muted">Root Cause Analysis · SRE War Room</span>
         </div>
         <div className="flex items-center gap-3">
           {isLoading && (

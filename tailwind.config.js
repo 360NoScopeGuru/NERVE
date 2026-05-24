@@ -11,17 +11,19 @@ export default {
       },
       colors: {
         nerve: {
-          bg: '#0a0e13',
-          panel: '#0f1520',
-          border: '#1e2d3d',
+          bg: '#080810',
+          panel: '#0c0c18',
+          border: '#181830',
           accent: '#00d4ff',
           accentDim: '#0099bb',
+          critical: '#ff2a2a',
+          criticalDim: '#cc1111',
           warn: '#f59e0b',
           danger: '#ef4444',
           success: '#10b981',
-          muted: '#4a5568',
+          muted: '#3d3d55',
           text: '#e2e8f0',
-          textDim: '#94a3b8',
+          textDim: '#8888aa',
         }
       },
       animation: {

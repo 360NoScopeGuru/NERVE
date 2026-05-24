@@ -1,9 +1,9 @@
 import { useState } from 'react'
 
 const STRENGTH_CONFIG = {
-  HIGH: { filled: 3, color: 'text-nerve-danger', bg: 'bg-nerve-danger', label: 'HIGH', border: 'border-nerve-danger/30', badge: 'bg-nerve-danger/15 text-nerve-danger' },
-  MED:  { filled: 2, color: 'text-nerve-warn',   bg: 'bg-nerve-warn',   label: 'MED',  border: 'border-nerve-warn/30',   badge: 'bg-nerve-warn/15 text-nerve-warn'   },
-  LOW:  { filled: 1, color: 'text-nerve-muted',  bg: 'bg-nerve-muted',  label: 'LOW',  border: 'border-nerve-border',     badge: 'bg-nerve-muted/15 text-nerve-muted'  },
+  HIGH: { filled: 3, color: 'text-nerve-critical', bg: 'bg-nerve-critical', label: 'HIGH', border: 'border-nerve-critical/25', badge: 'bg-nerve-critical/15 text-nerve-critical', glow: true },
+  MED:  { filled: 2, color: 'text-nerve-warn',     bg: 'bg-nerve-warn',     label: 'MED',  border: 'border-nerve-warn/30',     badge: 'bg-nerve-warn/15 text-nerve-warn',     glow: false },
+  LOW:  { filled: 1, color: 'text-nerve-muted',    bg: 'bg-nerve-muted',    label: 'LOW',  border: 'border-nerve-border',       badge: 'bg-nerve-muted/15 text-nerve-muted',  glow: false },
 }
 
 function SignalDots({ strength }) {
@@ -18,6 +18,7 @@ function SignalDots({ strength }) {
               ? `${cfg.bg} border-transparent`
               : 'bg-transparent border-nerve-muted/40'
           }`}
+          style={n <= cfg.filled && cfg.glow ? { boxShadow: '0 0 5px rgba(255,42,42,0.7)' } : undefined}
         />
       ))}
     </div>
@@ -31,7 +32,11 @@ export default function HypothesisCard({ hypothesis, index }) {
   return (
     <div
       className={`rounded border ${cfg.border} bg-nerve-panel transition-all duration-200 animate-slide-up overflow-hidden`}
-      style={{ animationDelay: `${index * 80}ms` }}
+      style={{
+        animationDelay: `${index * 80}ms`,
+        borderLeft: cfg.glow ? '2px solid rgba(255,42,42,0.6)' : undefined,
+        boxShadow: cfg.glow ? 'inset 3px 0 12px rgba(255,42,42,0.08), 0 0 0 1px rgba(255,42,42,0.08)' : undefined,
+      }}
     >
       <div
         className="flex items-start gap-3 p-3 cursor-pointer hover:bg-white/[0.02] transition-colors"
