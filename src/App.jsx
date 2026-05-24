@@ -125,7 +125,42 @@ function SignInScreen() {
           border: '1px solid rgba(30,30,64,0.9)',
           boxShadow: '0 32px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04)',
         }}>
-          <SignIn routing="hash" />
+          <SignIn
+            routing="hash"
+            appearance={{
+              variables: {
+                colorBackground:              'rgb(8, 8, 24)',
+                colorInputBackground:         'rgb(2, 2, 9)',
+                colorInputText:               'rgb(221, 228, 240)',
+                colorText:                    'rgb(221, 228, 240)',
+                colorTextSecondary:           'rgb(172, 172, 204)',
+                colorPrimary:                 'rgb(0, 212, 255)',
+                colorTextOnPrimaryBackground: 'rgb(4, 4, 14)',
+                colorDanger:                  'rgb(255, 42, 42)',
+                colorSuccess:                 'rgb(0, 229, 160)',
+                colorWarning:                 'rgb(245, 158, 11)',
+                colorNeutral:                 'rgb(30, 30, 64)',
+                borderRadius:                 '0.5rem',
+              },
+              elements: {
+                card:              { background: 'transparent', boxShadow: 'none', border: 'none' },
+                headerTitle:       { color: 'rgb(221, 228, 240)' },
+                headerSubtitle:    { color: 'rgb(172, 172, 204)' },
+                socialButtonsBlockButton: {
+                  background: 'rgb(13, 13, 34)',
+                  border:     '1px solid rgb(30, 30, 64)',
+                  color:      'rgb(221, 228, 240)',
+                },
+                dividerLine:       { background: 'rgb(30, 30, 64)' },
+                dividerText:       { color: 'rgb(106, 106, 148)' },
+                formFieldLabel:    { color: 'rgb(172, 172, 204)' },
+                formFieldInput:    { border: '1px solid rgb(30, 30, 64)' },
+                footerActionLink:  { color: 'rgb(0, 212, 255)' },
+                identityPreviewText:      { color: 'rgb(221, 228, 240)' },
+                identityPreviewEditButton: { color: 'rgb(0, 212, 255)' },
+              },
+            }}
+          />
         </div>
 
         <p className="text-[9px] font-mono text-nerve-muted animate-intro-in" style={{ animationDelay: '380ms' }}>
