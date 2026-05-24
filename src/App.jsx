@@ -102,15 +102,15 @@ function SignInScreen() {
         </div>
 
         {/* System status row */}
-        <div className="w-full flex justify-center items-center gap-4 animate-intro-in" style={{ animationDelay: '220ms' }}>
+        <div className="w-full grid grid-cols-3 gap-2 animate-intro-in" style={{ animationDelay: '220ms' }}>
           {[
             { dot: 'bg-nerve-success', label: 'SRE ENGINE', status: 'ONLINE' },
             { dot: 'bg-nerve-accent', label: 'AI MODEL', status: 'READY' },
             { dot: 'bg-nerve-warn', label: 'ENCRYPTION', status: 'ACTIVE' },
           ].map(({ dot, label, status }) => (
-            <div key={label} className="flex items-center gap-1.5">
-              <span className={`w-1.5 h-1.5 rounded-full ${dot} animate-pulse`} />
-              <span className="text-[9px] font-mono text-nerve-muted">
+            <div key={label} className="flex items-center justify-center gap-1.5">
+              <span className={`w-1.5 h-1.5 rounded-full ${dot} animate-pulse flex-shrink-0`} />
+              <span className="text-[9px] font-mono text-nerve-muted whitespace-nowrap">
                 <span className="text-nerve-textDim">{label}</span> · {status}
               </span>
             </div>
