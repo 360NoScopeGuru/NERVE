@@ -160,6 +160,8 @@ function Analyzer() {
   const [analysisStatus, setAnalysisStatus] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [historyKey, setHistoryKey] = useState(0)
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640)
+  const [mobileTab, setMobileTab] = useState('input')
 
   // ── Effects ───────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -174,6 +176,12 @@ function Analyzer() {
       sessionStorage.setItem('nerve-intro-shown', '1')
     }, 1850)
     return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [])
+
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 640)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
   }, [])
 
   const handleMouseMove = useCallback((e) => {
@@ -228,6 +236,7 @@ function Analyzer() {
       setFromCache(cached)
       setActiveTab('timeline')
       setHistoryKey(k => k + 1)
+      if (window.innerWidth < 640) setMobileTab('output')
     } catch (err) {
       setError(err.message)
     } finally {
@@ -250,7 +259,7 @@ function Analyzer() {
   return (
     <div
       ref={rootRef}
-      className="h-screen bg-nerve-bg text-nerve-text flex flex-col overflow-hidden"
+      className="h-[100dvh] bg-nerve-bg text-nerve-text flex flex-col overflow-hidden"
       style={{ '--mx': 0.5, '--my': 0.5 }}
       onMouseMove={handleMouseMove}
     >
@@ -293,7 +302,7 @@ function Analyzer() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setSidebarOpen(o => !o)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-nerve-border hover:border-nerve-accent/30 text-nerve-textDim hover:text-nerve-accent text-[10px] font-display font-semibold tracking-wider transition-all duration-200 hover:bg-nerve-accent/5"
+            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-nerve-border hover:border-nerve-accent/30 text-nerve-textDim hover:text-nerve-accent text-[10px] font-display font-semibold tracking-wider transition-all duration-200 hover:bg-nerve-accent/5"
           >
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -359,16 +368,18 @@ function Analyzer() {
 
       {/* ── Body ───────────────────────────────────────────────────────────── */}
       <div className="flex-1 flex overflow-hidden relative z-10">
-        <HistorySidebar
-          isOpen={sidebarOpen}
-          onLoadResult={handleLoadFromHistory}
-          refreshKey={historyKey}
-        />
+        {!isMobile && (
+          <HistorySidebar
+            isOpen={sidebarOpen}
+            onLoadResult={handleLoadFromHistory}
+            refreshKey={historyKey}
+          />
+        )}
 
         {/* Left — Input */}
         <div
-          className="flex-shrink-0 flex flex-col overflow-hidden"
-          style={{
+          className={`flex-col overflow-hidden ${isMobile ? (mobileTab === 'input' ? 'flex flex-1' : 'hidden') : 'flex flex-shrink-0'}`}
+          style={isMobile ? undefined : {
             width: sidebarOpen ? '40%' : '46%',
             transition: 'width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
             borderRight: '1px solid rgb(var(--c-border))',
@@ -389,7 +400,7 @@ function Analyzer() {
         </div>
 
         {/* Right — Output */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className={`flex-col overflow-hidden ${isMobile ? (mobileTab === 'output' ? 'flex flex-1' : 'hidden') : 'flex flex-1'}`}>
           <div className="flex-shrink-0 px-5 py-2.5 flex items-center justify-between"
             style={{ borderBottom: '1px solid rgb(var(--c-border))' }}>
             <span className="text-[10px] font-display font-semibold tracking-[0.25em] text-nerve-mutedBright">
@@ -492,6 +503,34 @@ function Analyzer() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Mobile tab bar */}
+      <div className="sm:hidden flex-shrink-0 flex" style={{ borderTop: '1px solid rgb(var(--c-border))', background: 'rgb(var(--c-panel))' }}>
+        <button
+          onClick={() => setMobileTab('input')}
+          className={`flex-1 py-3 text-[11px] font-display font-semibold tracking-wider flex items-center justify-center gap-2 transition-colors ${
+            mobileTab === 'input' ? 'text-nerve-accent' : 'text-nerve-muted'
+          }`}
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          INPUT
+        </button>
+        <div className="w-px my-2.5" style={{ background: 'rgb(var(--c-border))' }} />
+        <button
+          onClick={() => setMobileTab('output')}
+          className={`flex-1 py-3 text-[11px] font-display font-semibold tracking-wider flex items-center justify-center gap-2 transition-colors ${
+            mobileTab === 'output' ? 'text-nerve-accent' : 'text-nerve-muted'
+          }`}
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          OUTPUT
+          {hasResult && <span className="w-1.5 h-1.5 rounded-full bg-nerve-success" />}
+        </button>
       </div>
     </div>
   )
