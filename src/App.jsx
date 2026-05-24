@@ -17,7 +17,6 @@ export default function App() {
   const [validationErrors, setValidationErrors] = useState([])
   const [activeTab, setActiveTab] = useState('timeline')
   const [analysisStatus, setAnalysisStatus] = useState('')
-  const [activeModel, setActiveModel] = useState('nvidia/llama-3.3-nemotron-super-49b-v1')
 
   const handleScenarioLoad = (scenario) => {
     setLogs(scenario.logs)
@@ -43,15 +42,8 @@ export default function App() {
     setIsLoading(true)
     setError(null)
     setResult(null)
-    setActiveModel('nvidia/llama-3.3-nemotron-super-49b-v1')
-
-    const handleStatus = (status) => {
-      setAnalysisStatus(status)
-      if (status === 'Switching to fallback model…') setActiveModel('meta/llama-3.1-8b-instruct')
-    }
-
     try {
-      const { result: parsed, fromCache: cached } = await runAnalysis(logs, activeScenario, handleStatus)
+      const { result: parsed, fromCache: cached } = await runAnalysis(logs, activeScenario, setAnalysisStatus)
       setResult(parsed)
       setFromCache(cached)
       setActiveTab('timeline')
@@ -105,12 +97,8 @@ export default function App() {
               Live analysis
             </div>
           )}
-          <div className={`text-[10px] font-mono border px-2 py-1 rounded transition-colors ${
-            activeModel === 'meta/llama-3.1-8b-instruct'
-              ? 'text-nerve-warn/80 border-nerve-warn/30'
-              : 'text-nerve-muted border-nerve-border/50'
-          }`}>
-            {activeModel.replace('-v1', '')}
+          <div className="text-[10px] font-mono text-nerve-muted border border-nerve-border/50 px-2 py-1 rounded">
+            NERVE Engine v1.0
           </div>
         </div>
       </header>
