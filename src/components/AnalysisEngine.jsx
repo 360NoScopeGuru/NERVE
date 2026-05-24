@@ -33,7 +33,7 @@ async function callModel(model, messages, timeoutMs) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({ model, max_tokens: 1024, messages }),
+      body: JSON.stringify({ model, max_tokens: 2048, messages }),
     })
     clearTimeout(timer)
 
@@ -44,11 +44,15 @@ async function callModel(model, messages, timeoutMs) {
     }
 
     const data = await res.json()
+    const finishReason = data.choices?.[0]?.finish_reason
     console.info('[NERVE]', model, {
-      finish_reason: data.choices?.[0]?.finish_reason,
+      finish_reason: finishReason,
       tokens: data.usage?.completion_tokens,
       length: data.choices?.[0]?.message?.content?.length,
     })
+    if (finishReason === 'length') {
+      console.warn('[NERVE]', model, 'hit max_tokens — output truncated')
+    }
 
     const content = data.choices?.[0]?.message?.content
     if (!content) throw new Error('Empty response')
