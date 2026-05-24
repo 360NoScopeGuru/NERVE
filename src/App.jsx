@@ -118,7 +118,7 @@ function SignInScreen() {
         </div>
 
         {/* Sign-in form card */}
-        <div className="w-full animate-intro-in" style={{ animationDelay: '300ms' }}>
+        <div className="w-full flex justify-center animate-intro-in" style={{ animationDelay: '300ms' }}>
           <SignIn
             routing="hash"
             appearance={{
@@ -137,9 +137,15 @@ function SignInScreen() {
                 borderRadius:                 '0.5rem',
               },
               elements: {
+                rootBox: {
+                  display:        'flex',
+                  justifyContent: 'center',
+                  width:          '100%',
+                },
                 card: {
-                  border:     '1px solid rgba(30,30,64,0.9)',
-                  boxShadow:  '0 32px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04)',
+                  margin:    '0 auto',
+                  border:    '1px solid rgba(30,30,64,0.9)',
+                  boxShadow: '0 32px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04)',
                 },
                 headerTitle:       { color: 'rgb(221, 228, 240)' },
                 headerSubtitle:    { color: 'rgb(172, 172, 204)' },
