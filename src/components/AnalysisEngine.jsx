@@ -3,7 +3,7 @@ import { SCENARIO_A_FALLBACK } from '../constants/fixtures'
 import { parseNerveResponse } from '../utils/responseParser'
 
 const API_URL = 'https://integrate.api.nvidia.com/v1/chat/completions'
-const TIMEOUT_MS = 15000
+const TIMEOUT_MS = 35000
 
 export async function runAnalysis(logData, scenarioId) {
   const apiKey = import.meta.env.VITE_NVIDIA_API_KEY

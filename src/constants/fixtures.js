@@ -43,39 +43,39 @@ export const SCENARIOS = [
     label: 'Scenario B',
     title: 'Bad Deploy → Payment Failures',
     description: 'DB connection pool exhaustion from bad deployment',
-    logs: `2026-05-24T14:02:11.001Z [deploy-svc]      INFO  Deploying payment-service v2.4.1 → v2.4.2 (rollout: 10%)
-2026-05-24T14:02:14.334Z [deploy-svc]      INFO  payment-service v2.4.2 pod 1/10 healthy — continuing rollout
-2026-05-24T14:02:19.001Z [payment-svc-v2]  INFO  Starting payment-service v2.4.2 — db pool config: min=20, max=200
-2026-05-24T14:02:19.112Z [payment-svc-v2]  WARN  DB pool: acquiring 20 baseline connections (pool_min=20)
-2026-05-24T14:02:21.334Z [payment-svc-v2]  INFO  DB pool ready: 20 connections acquired
-2026-05-24T14:02:31.001Z [deploy-svc]      INFO  Deploying payment-service v2.4.2 — scaling to 50% (5 pods)
-2026-05-24T14:02:33.112Z [payment-svc-v2]  INFO  pod 2/10 starting — acquiring db connections
-2026-05-24T14:02:33.334Z [payment-svc-v2]  INFO  pod 3/10 starting — acquiring db connections
-2026-05-24T14:02:33.891Z [payment-svc-v2]  INFO  pod 4/10 starting — acquiring db connections
-2026-05-24T14:02:34.001Z [payment-svc-v2]  INFO  pod 5/10 starting — acquiring db connections
-2026-05-24T14:02:34.447Z [postgres-payments] WARN  Active connections: 112/150 (74%) — approaching limit
-2026-05-24T14:02:38.001Z [deploy-svc]      INFO  Deploying payment-service v2.4.2 — scaling to 100% (10 pods)
-2026-05-24T14:02:39.112Z [payment-svc-v2]  INFO  pod 6/10 starting — acquiring db connections
-2026-05-24T14:02:39.334Z [payment-svc-v2]  INFO  pod 7/10 starting — acquiring db connections
-2026-05-24T14:02:39.891Z [payment-svc-v2]  INFO  pod 8/10 starting — acquiring db connections
-2026-05-24T14:02:40.001Z [postgres-payments] ERROR Active connections: 151/150 — connection limit exceeded
-2026-05-24T14:02:40.112Z [postgres-payments] ERROR FATAL: remaining connection slots reserved for non-replication superuser
-2026-05-24T14:02:40.334Z [payment-svc-v2]  ERROR DB pool exhausted: unable to acquire connection after 5000ms — pod 8
-2026-05-24T14:02:40.447Z [payment-svc-v2]  ERROR DB pool exhausted: unable to acquire connection after 5000ms — pod 9
-2026-05-24T14:02:40.891Z [payment-svc-v2]  ERROR DB pool exhausted: unable to acquire connection after 5000ms — pod 10
-2026-05-24T14:02:41.001Z [payment-svc-v2]  ERROR POST /api/v1/charge returned 500: DB_POOL_EXHAUSTED txn_id=txn_8812334
-2026-05-24T14:02:41.112Z [payment-svc-v2]  ERROR POST /api/v1/charge returned 500: DB_POOL_EXHAUSTED txn_id=txn_8812335
-2026-05-24T14:02:41.334Z [payment-svc-v2]  ERROR POST /api/v1/charge returned 500: DB_POOL_EXHAUSTED txn_id=txn_8812336
-2026-05-24T14:02:42.001Z [payment-svc-v2]  ERROR POST /api/v1/refund returned 500: DB_POOL_EXHAUSTED txn_id=refund_441209
-2026-05-24T14:02:42.334Z [stripe-webhook]  WARN  Retry attempt 1/3 for charge event evt_1OxK2LJZ — previous attempt 500
-2026-05-24T14:02:43.001Z [fraud-detection]  ERROR Cannot query transaction history: DB_CONN_REFUSED — bypassing fraud check
-2026-05-24T14:02:44.112Z [ops-monitor]     CRIT  Payment error rate: 94.3% (threshold: 5%) — P1 INCIDENT CREATED
-2026-05-24T14:02:45.334Z [payment-svc-v2]  ERROR POST /api/v1/charge returned 500: DB_POOL_EXHAUSTED txn_id=txn_8812340
-2026-05-24T14:02:48.001Z [deploy-svc]      WARN  Rollback initiated: payment-service v2.4.2 → v2.4.1 (error rate threshold)
-2026-05-24T14:02:51.334Z [payment-svc-v1]  INFO  pod 1/10 v2.4.1 healthy — connections: 15/150 active
-2026-05-24T14:02:54.001Z [postgres-payments] INFO  Connections dropping: 143 → 98 as v2.4.2 pods terminate
-2026-05-24T14:02:58.334Z [postgres-payments] INFO  Connections stable: 82/150 — pool healthy
-2026-05-24T14:03:01.001Z [payment-svc-v1]  INFO  POST /api/v1/charge 200 OK txn_id=txn_8812358 — service recovering
+    logs: `2026-05-24T03:11:02Z [deployment-service] INFO Deploy initiated: payments-api v2.4.1 -> v2.4.2 by ci-bot
+2026-05-24T03:11:09Z [deployment-service] INFO Rolling update started: 3/6 pods replaced
+2026-05-24T03:11:14Z [deployment-service] INFO Rolling update started: 6/6 pods replaced
+2026-05-24T03:11:15Z [payments-api] INFO Service restarted on new build v2.4.2
+2026-05-24T03:11:16Z [payments-api] WARN Config loaded: db.pool.max_connections=5 (was 50)
+2026-05-24T03:11:20Z [payments-api] INFO Accepting traffic
+2026-05-24T03:11:23Z [payments-api] WARN DB connection pool near limit: 4/5 connections active
+2026-05-24T03:11:25Z [payments-api] ERROR DB connection pool exhausted: timeout acquiring connection after 3002ms
+2026-05-24T03:11:25Z [payments-api] ERROR Payment transaction failed: unable to acquire DB connection [txn_id=8821a]
+2026-05-24T03:11:26Z [payments-api] ERROR Payment transaction failed: unable to acquire DB connection [txn_id=8822b]
+2026-05-24T03:11:26Z [payments-api] ERROR Payment transaction failed: unable to acquire DB connection [txn_id=8823c]
+2026-05-24T03:11:27Z [postgres-primary] WARN Idle connection count dropped to 0 — all slots occupied
+2026-05-24T03:11:27Z [postgres-primary] ERROR max_connections limit approaching: 98/100 connections active
+2026-05-24T03:11:28Z [payments-api] ERROR DB connection pool exhausted: timeout acquiring connection after 3001ms
+2026-05-24T03:11:28Z [payments-api] ERROR Payment transaction failed: unable to acquire DB connection [txn_id=8824d]
+2026-05-24T03:11:29Z [load-balancer] WARN Upstream payments-api response time: 4821ms (threshold: 2000ms)
+2026-05-24T03:11:30Z [checkout-service] ERROR Dependency timeout: payments-api did not respond within 5000ms
+2026-05-24T03:11:30Z [checkout-service] ERROR Order failed at payment step [order_id=ORD-99123]
+2026-05-24T03:11:31Z [checkout-service] ERROR Order failed at payment step [order_id=ORD-99124]
+2026-05-24T03:11:31Z [checkout-service] ERROR Order failed at payment step [order_id=ORD-99125]
+2026-05-24T03:11:32Z [alerting] CRITICAL Payment success rate dropped to 3% (baseline: 99.1%)
+2026-05-24T03:11:32Z [alerting] CRITICAL PagerDuty alert fired: PAYMENTS_DOWN P1
+2026-05-24T03:11:33Z [payments-api] ERROR DB connection pool exhausted: timeout acquiring connection after 3005ms
+2026-05-24T03:11:34Z [postgres-primary] ERROR FATAL: remaining connection slots reserved for non-replication superuser
+2026-05-24T03:11:35Z [checkout-service] ERROR Order failed at payment step [order_id=ORD-99126]
+2026-05-24T03:11:36Z [load-balancer] ERROR Upstream payments-api health check failed: HTTP 503
+2026-05-24T03:11:36Z [load-balancer] WARN Removing payments-api pod payments-api-7d9f from rotation
+2026-05-24T03:11:40Z [deployment-service] WARN Rollback triggered for payments-api v2.4.2 -> v2.4.1
+2026-05-24T03:11:47Z [deployment-service] INFO Rollback complete: payments-api v2.4.1 restored
+2026-05-24T03:11:49Z [payments-api] INFO Config loaded: db.pool.max_connections=50 (restored)
+2026-05-24T03:11:52Z [postgres-primary] INFO Connection count normalizing: 41/100 active
+2026-05-24T03:11:55Z [payments-api] INFO Payment transactions resuming normally
+2026-05-24T03:12:01Z [alerting] INFO Payment success rate recovered to 97.4%
 `,
   },
   {
@@ -83,31 +83,35 @@ export const SCENARIOS = [
     label: 'Scenario C',
     title: 'CDN Degradation → Frontend Crash',
     description: 'CDN edge degradation causing asset failures and JS crash',
-    logs: `2026-05-24T09:15:01.334Z [cdn-edge-us-east-1] INFO  Edge node healthy — cache hit rate: 91.2%
-2026-05-24T09:15:44.001Z [cdn-edge-us-east-1] WARN  BGP route flap detected: upstream provider AS7922 (Comcast) — latency spike
-2026-05-24T09:15:45.112Z [cdn-edge-us-east-1] WARN  Origin pull latency p99=8340ms (baseline: 120ms) — origin unreachable?
-2026-05-24T09:15:46.334Z [cdn-edge-us-east-1] ERROR Origin fetch timeout: GET /static/js/main.chunk.js (attempt 1/3) after 10000ms
-2026-05-24T09:15:47.001Z [cdn-edge-us-east-1] ERROR Cache MISS + origin timeout: serving stale for /static/js/main.chunk.js (stale-age: 0s)
-2026-05-24T09:15:47.334Z [cdn-edge-us-east-1] ERROR 503 returned to client for /static/js/main.chunk.js
-2026-05-24T09:15:47.891Z [cdn-edge-us-east-1] ERROR 503 returned to client for /static/css/main.chunk.css
-2026-05-24T09:15:48.001Z [cdn-edge-us-east-1] ERROR 503 returned to client for /static/js/vendors.chunk.js
-2026-05-24T09:15:48.334Z [rum-collector]    ERROR JS error: TypeError: Cannot read properties of undefined (reading 'mount') at main.chunk.js:1:48293
-2026-05-24T09:15:48.447Z [rum-collector]    ERROR JS error: ReferenceError: React is not defined at vendors.chunk.js:1:12
-2026-05-24T09:15:48.891Z [rum-collector]    ERROR JS error: TypeError: Cannot read properties of undefined (reading 'mount') — user_id=usr_2234 session=s_8812
-2026-05-24T09:15:49.001Z [rum-collector]    ERROR White screen detected: app failed to initialize — 0 React roots mounted
-2026-05-24T09:15:49.112Z [rum-collector]    ERROR White screen detected — user_id=usr_4421 session=s_9023
-2026-05-24T09:15:49.334Z [rum-collector]    ERROR White screen detected — user_id=usr_7731 session=s_7441
-2026-05-24T09:15:50.001Z [synthetic-monitor] ERROR Synthetic check FAILED: app-load-us-east (step: wait_for_react_root) — timeout 15s
-2026-05-24T09:15:50.334Z [synthetic-monitor] ERROR Synthetic check FAILED: checkout-flow-us-east (step: page_load) — 0 assets loaded
-2026-05-24T09:15:51.001Z [cdn-edge-us-east-2] WARN  Elevated miss rate: 34.1% (baseline 8.8%) — failover traffic from us-east-1?
-2026-05-24T09:15:51.334Z [cdn-edge-us-east-2] WARN  Origin pull queue depth: 2847 requests pending
-2026-05-24T09:15:52.001Z [cdn-edge-us-east-2] ERROR Origin fetch timeout: GET /static/js/main.chunk.js — failover edge also degraded
-2026-05-24T09:15:53.334Z [alerting]         CRIT  P1: CDN asset failure rate 89% in us-east — frontend unreachable
-2026-05-24T09:15:54.001Z [cdn-control-plane] INFO  Initiating emergency cache purge + origin bypass for *.chunk.js *.chunk.css
-2026-05-24T09:15:55.112Z [cdn-control-plane] INFO  Rerouting us-east-1 traffic → us-west-2 edge (healthy, cache hit: 88.1%)
-2026-05-24T09:16:01.334Z [rum-collector]    INFO  React root mounted successfully — user_id=usr_2291 (us-west-2 path)
-2026-05-24T09:16:02.001Z [cdn-edge-us-east-1] INFO  BGP route restored — AS7922 latency normalizing: 340ms → 89ms
-2026-05-24T09:16:08.334Z [synthetic-monitor] INFO  Synthetic check PASSED: app-load-us-east — recovery confirmed
+    logs: `2026-05-24T14:22:01Z [cdn-health-monitor] WARN Elevated latency detected on cdn-edge-eu-west-2: p99=4200ms (baseline: 180ms)
+2026-05-24T14:22:04Z [cdn-health-monitor] WARN Packet loss on cdn-edge-eu-west-2: 18% (threshold: 2%)
+2026-05-24T14:22:07Z [cdn-health-monitor] ERROR cdn-edge-eu-west-2 health check failed: connection timeout
+2026-05-24T14:22:09Z [frontend-server] WARN Static asset fetch timeout: /static/js/main.chunk.js (cdn-edge-eu-west-2) 5001ms
+2026-05-24T14:22:09Z [frontend-server] WARN Static asset fetch timeout: /static/css/main.chunk.css (cdn-edge-eu-west-2) 5003ms
+2026-05-24T14:22:10Z [frontend-server] ERROR Failed to load critical asset: /static/js/vendor.chunk.js — CDN returned HTTP 524
+2026-05-24T14:22:10Z [frontend-server] ERROR Failed to load critical asset: /static/js/main.chunk.js — CDN returned HTTP 524
+2026-05-24T14:22:11Z [browser-error-tracker] ERROR Uncaught TypeError: Cannot read properties of undefined (reading 'init') — main.chunk.js failed to load
+2026-05-24T14:22:11Z [browser-error-tracker] ERROR React render failed: ChunkLoadError — loading chunk 12 failed
+2026-05-24T14:22:11Z [browser-error-tracker] ERROR React render failed: ChunkLoadError — loading chunk 7 failed
+2026-05-24T14:22:12Z [browser-error-tracker] CRITICAL White screen reported by 847 active sessions in eu-west region
+2026-05-24T14:22:13Z [frontend-server] ERROR Asset CDN fallback to origin triggered for: /static/js/main.chunk.js
+2026-05-24T14:22:13Z [frontend-server] ERROR Asset CDN fallback to origin triggered for: /static/js/vendor.chunk.js
+2026-05-24T14:22:14Z [origin-server] WARN Unexpected direct asset traffic spike: 2400 req/s (normal CDN-served baseline: 12 req/s)
+2026-05-24T14:22:15Z [origin-server] WARN CPU utilization: 94% (threshold: 80%) — origin not sized for direct traffic
+2026-05-24T14:22:16Z [cdn-health-monitor] ERROR cdn-edge-eu-west-2 marked DEGRADED — failover to cdn-edge-eu-central-1 initiated
+2026-05-24T14:22:17Z [browser-error-tracker] CRITICAL Error rate: 94% of page loads in eu-west failing with ChunkLoadError
+2026-05-24T14:22:18Z [frontend-server] WARN CDN failover in progress — asset availability partial during transition
+2026-05-24T14:22:19Z [origin-server] ERROR HTTP 503 responses started: origin overloaded by direct traffic fallback
+2026-05-24T14:22:20Z [browser-error-tracker] CRITICAL White screen count: 3,412 sessions — eu-west region fully impacted
+2026-05-24T14:22:21Z [alerting] CRITICAL PagerDuty alert fired: FRONTEND_DOWN_EU_WEST P1
+2026-05-24T14:22:22Z [cdn-health-monitor] WARN cdn-edge-eu-central-1 absorbing failover traffic — latency elevated: p99=820ms
+2026-05-24T14:22:28Z [cdn-health-monitor] INFO Failover to cdn-edge-eu-central-1 complete
+2026-05-24T14:22:30Z [frontend-server] INFO Assets now loading from cdn-edge-eu-central-1
+2026-05-24T14:22:33Z [origin-server] INFO Direct traffic normalizing: 180 req/s — CDN failover absorbing load
+2026-05-24T14:22:35Z [browser-error-tracker] INFO Error rate dropping: 41% of page loads failing (recovering)
+2026-05-24T14:22:40Z [browser-error-tracker] INFO Error rate: 8% — recovery in progress
+2026-05-24T14:22:45Z [alerting] INFO FRONTEND_DOWN_EU_WEST resolving — error rate 2.1%
+2026-05-24T14:22:50Z [browser-error-tracker] INFO Page load success rate restored: 98.7% in eu-west region
 `,
   },
 ]
