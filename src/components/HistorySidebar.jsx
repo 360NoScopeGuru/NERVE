@@ -57,7 +57,7 @@ export default function HistorySidebar({ isOpen, onToggle, onLoadResult, refresh
       })
       if (res.ok) {
         const data = await res.json()
-        onLoadResult(data.result, data.fromCache, data.logData)
+        onLoadResult(data.result, data.fromCache, data.logData, data.scenarioId)
       }
     } finally {
       setLoadingId(null)

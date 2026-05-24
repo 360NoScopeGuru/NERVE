@@ -7,28 +7,28 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        mono: ['JetBrains Mono', 'Fira Code', 'Cascadia Code', 'monospace'],
+        mono:    ['JetBrains Mono', 'Fira Code', 'Cascadia Code', 'monospace'],
         display: ['Chakra Petch', 'sans-serif'],
       },
       colors: {
         nerve: {
-          bg:           '#04040e',
-          panel:        '#080818',
-          panelRaised:  '#0d0d22',
-          border:       '#141428',
-          borderBright: '#1e1e40',
-          accent:       '#00d4ff',
-          accentDim:    '#0099bb',
-          critical:     '#ff2a2a',
-          criticalDim:  '#cc1111',
-          warn:         '#f59e0b',
-          danger:       '#ef4444',
-          success:      '#00e5a0',
-          muted:        '#2e2e50',
-          mutedBright:  '#4a4a70',
-          text:         '#dde4f0',
-          textDim:      '#7070a0',
-          phosphor:     '#00ffcc',
+          bg:           'rgb(var(--c-bg) / <alpha-value>)',
+          panel:        'rgb(var(--c-panel) / <alpha-value>)',
+          panelRaised:  'rgb(var(--c-panel-raised) / <alpha-value>)',
+          border:       'rgb(var(--c-border) / <alpha-value>)',
+          borderBright: 'rgb(var(--c-border-bright) / <alpha-value>)',
+          accent:       'rgb(var(--c-accent) / <alpha-value>)',
+          accentDim:    'rgb(var(--c-accent-dim) / <alpha-value>)',
+          critical:     'rgb(var(--c-critical) / <alpha-value>)',
+          criticalDim:  'rgb(var(--c-critical-dim) / <alpha-value>)',
+          warn:         'rgb(var(--c-warn) / <alpha-value>)',
+          danger:       'rgb(var(--c-danger) / <alpha-value>)',
+          success:      'rgb(var(--c-success) / <alpha-value>)',
+          muted:        'rgb(var(--c-muted) / <alpha-value>)',
+          mutedBright:  'rgb(var(--c-muted-bright) / <alpha-value>)',
+          text:         'rgb(var(--c-text) / <alpha-value>)',
+          textDim:      'rgb(var(--c-text-dim) / <alpha-value>)',
+          phosphor:     'rgb(var(--c-phosphor) / <alpha-value>)',
         }
       },
       animation: {
@@ -43,8 +43,9 @@ export default {
         'slide-up':    'slideUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both',
         'glow-in':     'glowIn 0.8s ease-out both',
         'pulse-slow':  'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'scan':        'scan 2s linear infinite',
-        'dash':        'dash 1s linear infinite',
+        'scan':        'scan 5s linear infinite',
+        'float':       'float 6s ease-in-out infinite',
+        'intro-in':    'introIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both',
       },
       keyframes: {
         springIn: {
@@ -66,13 +67,12 @@ export default {
         flicker: {
           '0%, 95%, 100%': { opacity: '1' },
           '96%':            { opacity: '0.6' },
-          '97%':            { opacity: '1' },
           '98%':            { opacity: '0.4' },
           '99%':            { opacity: '1' },
         },
         pulseGlow: {
-          '0%, 100%': { boxShadow: 'inset 3px 0 12px rgba(255,42,42,0.25), 0 0 12px rgba(255,42,42,0.08)' },
-          '50%':      { boxShadow: 'inset 3px 0 24px rgba(255,42,42,0.55), 0 0 28px rgba(255,42,42,0.22)' },
+          '0%, 100%': { boxShadow: 'inset 3px 0 12px rgba(255,42,42,0.2), 0 0 12px rgba(255,42,42,0.06)' },
+          '50%':      { boxShadow: 'inset 3px 0 24px rgba(255,42,42,0.5), 0 0 28px rgba(255,42,42,0.18)' },
         },
         sweep: {
           '0%':   { transform: 'translateX(-100%)' },
@@ -96,9 +96,13 @@ export default {
           '0%':   { transform: 'translateY(-100%)' },
           '100%': { transform: 'translateY(100vh)' },
         },
-        dash: {
-          '0%':   { strokeDashoffset: '100' },
-          '100%': { strokeDashoffset: '0' },
+        float: {
+          '0%, 100%': { transform: 'translateY(0px)' },
+          '50%':      { transform: 'translateY(-8px)' },
+        },
+        introIn: {
+          '0%':   { opacity: '0', transform: 'scale(0.8) translateY(20px)' },
+          '100%': { opacity: '1', transform: 'scale(1) translateY(0)' },
         },
       },
     },

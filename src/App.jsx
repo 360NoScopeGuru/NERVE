@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { SignedIn, SignedOut, SignIn, UserButton, useAuth } from '@clerk/clerk-react'
 import ScenarioLoader from './components/ScenarioLoader'
 import LogInputPanel from './components/LogInputPanel'
@@ -12,61 +12,143 @@ import { validateLogs } from './utils/logValidator'
 export default function App() {
   return (
     <>
-      <SignedOut>
-        <SignInScreen />
-      </SignedOut>
-      <SignedIn>
-        <Analyzer />
-      </SignedIn>
+      <SignedOut><SignInScreen /></SignedOut>
+      <SignedIn><Analyzer /></SignedIn>
     </>
   )
 }
 
+/* ── Elaborate Sign-In Screen ─────────────────────────────────────────────── */
 function SignInScreen() {
   return (
     <div className="h-screen bg-nerve-bg flex items-center justify-center relative overflow-hidden">
-      {/* Radial grid background */}
-      <div className="absolute inset-0 pointer-events-none" style={{
-        backgroundImage: 'radial-gradient(circle at 50% 50%, #0d0d22 0%, #04040e 70%)',
-      }} />
+      {/* Base grid */}
       <div className="absolute inset-0 pointer-events-none opacity-[0.04]" style={{
-        backgroundImage: 'linear-gradient(#1e1e40 1px, transparent 1px), linear-gradient(90deg, #1e1e40 1px, transparent 1px)',
-        backgroundSize: '40px 40px',
+        backgroundImage: 'linear-gradient(rgb(var(--c-border-bright)) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--c-border-bright)) 1px, transparent 1px)',
+        backgroundSize: '48px 48px',
       }} />
 
-      {/* Glow orb */}
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full pointer-events-none"
-        style={{ background: 'radial-gradient(circle, rgba(255,42,42,0.08) 0%, transparent 70%)' }} />
+      {/* Scanning line */}
+      <div className="absolute left-0 right-0 h-[1px] animate-scan pointer-events-none" style={{
+        background: 'linear-gradient(90deg, transparent, rgba(0,212,255,0.3), transparent)',
+        animationDuration: '6s',
+      }} />
 
-      <div className="relative flex flex-col items-center gap-8 animate-spring-in">
-        {/* Logo */}
-        <div className="flex flex-col items-center gap-3">
-          <NerveLogo size="lg" />
-          <div className="text-center">
-            <p className="text-xs font-mono text-nerve-textDim tracking-[0.3em] uppercase mt-2">
-              SRE Incident Analyzer
-            </p>
-            <p className="text-[10px] font-mono text-nerve-muted mt-1">
-              Root cause analysis · War room intelligence
-            </p>
+      {/* Corner brackets */}
+      {[
+        'top-8 left-8 border-t border-l',
+        'top-8 right-8 border-t border-r',
+        'bottom-8 left-8 border-b border-l',
+        'bottom-8 right-8 border-b border-r',
+      ].map((cls, i) => (
+        <div key={i} className={`absolute w-10 h-10 ${cls} border-nerve-accent/20 pointer-events-none`} />
+      ))}
+
+      {/* Ambient glow orbs */}
+      <div className="absolute top-1/4 left-1/3 w-[500px] h-[500px] rounded-full pointer-events-none" style={{
+        background: 'radial-gradient(circle, rgba(0,212,255,0.05) 0%, transparent 65%)',
+      }} />
+      <div className="absolute bottom-1/4 right-1/3 w-[400px] h-[400px] rounded-full pointer-events-none" style={{
+        background: 'radial-gradient(circle, rgba(255,42,42,0.07) 0%, transparent 65%)',
+      }} />
+      <div className="absolute top-2/3 left-1/4 w-[300px] h-[300px] rounded-full pointer-events-none" style={{
+        background: 'radial-gradient(circle, rgba(0,229,160,0.03) 0%, transparent 65%)',
+      }} />
+
+      {/* Main content column */}
+      <div className="relative flex flex-col items-center gap-6 max-w-sm w-full px-4">
+
+        {/* RESTRICTED badge */}
+        <div className="flex items-center gap-2 px-3 py-1 rounded-full border border-nerve-critical/30 bg-nerve-critical/8 animate-intro-in" style={{ animationDelay: '0ms' }}>
+          <span className="w-1.5 h-1.5 rounded-full bg-nerve-critical animate-pulse" style={{ boxShadow: '0 0 6px rgba(255,42,42,0.8)' }} />
+          <span className="text-[9px] font-display font-bold tracking-[0.35em] text-nerve-critical/80">AUTHORIZED ACCESS ONLY</span>
+        </div>
+
+        {/* Logo with orbiting rings */}
+        <div className="relative flex items-center justify-center animate-intro-in" style={{ animationDelay: '80ms' }}>
+          {/* Outermost ring */}
+          <div className="absolute w-44 h-44 rounded-full border border-nerve-accent/6 animate-spin" style={{ animationDuration: '25s' }} />
+          {/* Dashed ring */}
+          <div className="absolute w-32 h-32 rounded-full border border-dashed border-nerve-critical/8 animate-spin" style={{ animationDuration: '18s', animationDirection: 'reverse' }} />
+          {/* Inner pulse rings */}
+          <div className="absolute w-24 h-24 rounded-full border border-nerve-accent/10 animate-pulse-slow" />
+          <div className="absolute w-20 h-20 rounded-full border border-nerve-critical/8 animate-pulse-slow" style={{ animationDelay: '1s' }} />
+
+          <div className="relative flex flex-col items-center gap-3">
+            {/* Icon */}
+            <div className="relative w-16 h-16">
+              <div className="absolute inset-0 rounded-lg bg-nerve-critical/10 border border-nerve-critical/25"
+                style={{ boxShadow: '0 0 40px rgba(255,42,42,0.25), 0 0 80px rgba(255,42,42,0.08)' }} />
+              <div className="absolute inset-[5px] rounded bg-nerve-critical/55"
+                style={{ boxShadow: '0 0 20px rgba(255,42,42,0.5)' }} />
+              <div className="absolute inset-[12px] rounded-sm bg-nerve-bg" />
+            </div>
+            {/* Wordmark */}
+            <span className="font-display font-bold text-5xl tracking-[0.3em] text-nerve-text"
+              style={{ textShadow: '0 0 40px rgba(255,42,42,0.4), 0 0 80px rgba(255,42,42,0.15)' }}>
+              NERVE
+            </span>
           </div>
         </div>
 
-        <div className="border-gradient rounded-lg p-px">
-          <div className="rounded-lg overflow-hidden">
-            <SignIn routing="hash" />
-          </div>
+        {/* Subtitle */}
+        <div className="text-center animate-intro-in" style={{ animationDelay: '160ms' }}>
+          <p className="text-xs font-display font-semibold tracking-[0.3em] text-nerve-textDim uppercase">
+            Incident Root Cause Analyzer
+          </p>
+          <p className="text-[10px] font-mono text-nerve-muted mt-1">
+            War room intelligence · SRE-grade analysis
+          </p>
         </div>
+
+        {/* System status row */}
+        <div className="flex items-center gap-4 animate-intro-in" style={{ animationDelay: '220ms' }}>
+          {[
+            { dot: 'bg-nerve-success', label: 'SRE ENGINE', status: 'ONLINE' },
+            { dot: 'bg-nerve-accent', label: 'AI MODEL', status: 'READY' },
+            { dot: 'bg-nerve-warn', label: 'ENCRYPTION', status: 'ACTIVE' },
+          ].map(({ dot, label, status }) => (
+            <div key={label} className="flex items-center gap-1.5">
+              <span className={`w-1.5 h-1.5 rounded-full ${dot} animate-pulse`} />
+              <span className="text-[9px] font-mono text-nerve-muted">
+                <span className="text-nerve-textDim">{label}</span> · {status}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Sign-in form card */}
+        <div className="w-full rounded-xl overflow-hidden animate-intro-in" style={{
+          animationDelay: '300ms',
+          background: 'rgba(8,8,24,0.85)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(30,30,64,0.9)',
+          boxShadow: '0 32px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04)',
+        }}>
+          <SignIn routing="hash" />
+        </div>
+
+        <p className="text-[9px] font-mono text-nerve-muted animate-intro-in" style={{ animationDelay: '380ms' }}>
+          Secure access · End-to-end encrypted · Powered by Clerk
+        </p>
       </div>
     </div>
   )
 }
 
+/* ── Main Analyzer ────────────────────────────────────────────────────────── */
 function Analyzer() {
   const { getToken } = useAuth()
-  const mouseRef = useRef({ x: 0.5, y: 0.5 })
   const rootRef = useRef(null)
 
+  // ── UI state ──────────────────────────────────────────────────────────────
+  const [theme, setTheme] = useState('dark')
+  const [showLightWarning, setShowLightWarning] = useState(false)
+  const [introPhase, setIntroPhase] = useState(() =>
+    sessionStorage.getItem('nerve-intro-shown') ? 'done' : 'enter'
+  )
+
+  // ── App state ─────────────────────────────────────────────────────────────
   const [logs, setLogs] = useState('')
   const [activeScenario, setActiveScenario] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -79,15 +161,43 @@ function Analyzer() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [historyKey, setHistoryKey] = useState(0)
 
+  // ── Effects ───────────────────────────────────────────────────────────────
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+  }, [theme])
+
+  useEffect(() => {
+    if (introPhase === 'done') return
+    const t1 = setTimeout(() => setIntroPhase('exit'), 1100)
+    const t2 = setTimeout(() => {
+      setIntroPhase('done')
+      sessionStorage.setItem('nerve-intro-shown', '1')
+    }, 1850)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [])
+
   const handleMouseMove = useCallback((e) => {
-    const x = e.clientX / window.innerWidth
-    const y = e.clientY / window.innerHeight
-    mouseRef.current = { x, y }
     if (rootRef.current) {
-      rootRef.current.style.setProperty('--mx', x)
-      rootRef.current.style.setProperty('--my', y)
+      rootRef.current.style.setProperty('--mx', e.clientX / window.innerWidth)
+      rootRef.current.style.setProperty('--my', e.clientY / window.innerHeight)
     }
   }, [])
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+  const handleNewAnalysis = () => {
+    setLogs('')
+    setResult(null)
+    setError(null)
+    setActiveScenario(null)
+    setValidationErrors([])
+    setFromCache(false)
+    setAnalysisStatus('')
+  }
+
+  const handleLightModeToggle = () => {
+    if (theme === 'light') { setTheme('dark'); return }
+    setShowLightWarning(true)
+  }
 
   const handleScenarioLoad = (scenario) => {
     setLogs(scenario.logs)
@@ -126,12 +236,13 @@ function Analyzer() {
     }
   }
 
-  const handleLoadFromHistory = (historicResult, cached, logData) => {
+  const handleLoadFromHistory = (historicResult, cached, logData, scenarioId) => {
     setResult(historicResult)
     setFromCache(cached)
     setActiveTab('timeline')
     setError(null)
     if (logData) setLogs(logData)
+    setActiveScenario(scenarioId || null)
   }
 
   const hasResult = result && !isLoading
@@ -143,41 +254,46 @@ function Analyzer() {
       style={{ '--mx': 0.5, '--my': 0.5 }}
       onMouseMove={handleMouseMove}
     >
+      {/* Intro overlay */}
+      {introPhase !== 'done' && <IntroOverlay phase={introPhase} />}
+
+      {/* Light mode warning */}
+      {showLightWarning && (
+        <LightModeWarning
+          onConfirm={() => { setShowLightWarning(false); setTheme('light') }}
+          onCancel={() => setShowLightWarning(false)}
+        />
+      )}
+
       {/* Cursor spotlight */}
-      <div
-        className="fixed inset-0 pointer-events-none z-10"
-        style={{
-          background: 'radial-gradient(600px circle at calc(var(--mx, 0.5) * 100vw) calc(var(--my, 0.5) * 100vh), rgba(0,212,255,0.04) 0%, transparent 60%)',
-          transition: 'background 0.05s',
-        }}
-      />
+      <div className="fixed inset-0 pointer-events-none z-10" style={{
+        background: 'radial-gradient(600px circle at calc(var(--mx, 0.5) * 100vw) calc(var(--my, 0.5) * 100vh), rgba(0,212,255,0.04) 0%, transparent 60%)',
+      }} />
 
       {/* Loading sweep bar */}
       {isLoading && (
         <div className="fixed top-0 left-0 right-0 h-[2px] z-50 overflow-hidden">
           <div className="h-full w-1/3 animate-sweep" style={{
-            background: 'linear-gradient(90deg, transparent, #00d4ff, #00ffcc, transparent)',
+            background: 'linear-gradient(90deg, transparent, rgb(var(--c-accent)), rgb(var(--c-phosphor)), transparent)',
           }} />
         </div>
       )}
 
-      {/* Header */}
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header
-        className="flex-shrink-0 px-5 py-3 flex items-center justify-between relative z-20"
+        className="flex-shrink-0 px-4 py-2.5 flex items-center justify-between relative z-20"
         style={{
-          background: 'linear-gradient(180deg, #08081a 0%, #04040e 100%)',
+          background: 'linear-gradient(180deg, rgb(var(--c-panel-raised)) 0%, rgb(var(--c-panel)) 100%)',
           boxShadow: isLoading
-            ? '0 1px 0 #1e1e40, 0 2px 20px rgba(0,212,255,0.12)'
-            : '0 1px 0 #141428',
+            ? '0 1px 0 rgb(var(--c-border-bright)), 0 2px 20px rgba(0,212,255,0.1)'
+            : '0 1px 0 rgb(var(--c-border))',
           transition: 'box-shadow 0.4s',
         }}
       >
-        <div className="flex items-center gap-4">
-          {/* History toggle */}
+        <div className="flex items-center gap-3">
           <button
             onClick={() => setSidebarOpen(o => !o)}
-            className="flex items-center gap-2 px-2.5 py-1.5 rounded font-mono text-[10px] text-nerve-textDim hover:text-nerve-accent border border-nerve-border hover:border-nerve-accent/30 transition-all duration-200 hover:bg-nerve-accent/5"
-            title="Toggle history"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-nerve-border hover:border-nerve-accent/30 text-nerve-textDim hover:text-nerve-accent text-[10px] font-display font-semibold tracking-wider transition-all duration-200 hover:bg-nerve-accent/5"
           >
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -185,16 +301,25 @@ function Analyzer() {
             HISTORY
           </button>
 
+          <button
+            onClick={handleNewAnalysis}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-nerve-border hover:border-nerve-success/40 text-nerve-textDim hover:text-nerve-success text-[10px] font-display font-semibold tracking-wider transition-all duration-200 hover:bg-nerve-success/5"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            NEW
+          </button>
+
           <div className="w-px h-5 bg-nerve-border" />
           <NerveLogo size="sm" />
-          <div className="w-px h-5 bg-nerve-border" />
-
+          <div className="w-px h-5 bg-nerve-border hidden sm:block" />
           <span className="text-[10px] font-mono text-nerve-muted tracking-widest hidden sm:block">
-            ROOT CAUSE ANALYSIS · WAR ROOM
+            ROOT CAUSE ANALYSIS
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           {isLoading && (
             <div className="flex items-center gap-2 text-[11px] font-mono text-nerve-accent">
               <span className="relative flex w-2 h-2">
@@ -204,44 +329,54 @@ function Analyzer() {
               {analysisStatus || 'ANALYZING…'}
             </div>
           )}
-          {hasResult && fromCache && (
-            <StatusPill color="warn" label="CACHED" />
-          )}
-          {hasResult && !fromCache && (
-            <StatusPill color="success" label="LIVE" />
-          )}
-          <div className="px-2.5 py-1 rounded border border-nerve-border bg-nerve-panel text-[10px] font-display text-nerve-mutedBright tracking-wider">
+          {hasResult && fromCache && <StatusPill color="warn" label="CACHED" />}
+          {hasResult && !fromCache && <StatusPill color="success" label="LIVE" />}
+
+          <div className="hidden sm:block px-2 py-1 rounded border border-nerve-border text-[10px] font-display text-nerve-mutedBright tracking-wider">
             NERVE v1.0
           </div>
+
+          {/* Theme toggle */}
+          <button
+            onClick={handleLightModeToggle}
+            className="w-7 h-7 rounded flex items-center justify-center border border-nerve-border hover:border-nerve-borderBright text-nerve-textDim hover:text-nerve-text transition-all duration-150"
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {theme === 'dark' ? (
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            ) : (
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              </svg>
+            )}
+          </button>
+
           <UserButton afterSignOutUrl="/" />
         </div>
       </header>
 
-      {/* Body */}
+      {/* ── Body ───────────────────────────────────────────────────────────── */}
       <div className="flex-1 flex overflow-hidden relative z-10">
-        {/* History sidebar */}
         <HistorySidebar
           isOpen={sidebarOpen}
-          onToggle={() => setSidebarOpen(o => !o)}
           onLoadResult={handleLoadFromHistory}
           refreshKey={historyKey}
         />
 
-        {/* Left panel — Input */}
+        {/* Left — Input */}
         <div
           className="flex-shrink-0 flex flex-col overflow-hidden"
           style={{
             width: sidebarOpen ? '40%' : '46%',
             transition: 'width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
-            borderRight: '1px solid #141428',
+            borderRight: '1px solid rgb(var(--c-border))',
           }}
         >
-          {/* Scenarios */}
-          <div className="flex-shrink-0 px-4 py-3" style={{ borderBottom: '1px solid #141428' }}>
+          <div className="flex-shrink-0 px-4 py-3" style={{ borderBottom: '1px solid rgb(var(--c-border))' }}>
             <ScenarioLoader onLoad={handleScenarioLoad} activeScenario={activeScenario} />
           </div>
-
-          {/* Log input */}
           <div className="flex-1 overflow-hidden p-4 flex flex-col">
             <LogInputPanel
               value={logs}
@@ -253,22 +388,19 @@ function Analyzer() {
           </div>
         </div>
 
-        {/* Right panel — Output */}
+        {/* Right — Output */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Tab bar */}
-          <div
-            className="flex-shrink-0 px-5 py-2.5 flex items-center justify-between"
-            style={{ borderBottom: '1px solid #141428' }}
-          >
+          <div className="flex-shrink-0 px-5 py-2.5 flex items-center justify-between"
+            style={{ borderBottom: '1px solid rgb(var(--c-border))' }}>
             <span className="text-[10px] font-display font-semibold tracking-[0.25em] text-nerve-mutedBright">
               ANALYSIS OUTPUT
             </span>
             {hasResult && (
               <div className="flex gap-1">
                 {[
-                  { id: 'timeline', label: 'TIMELINE', count: result.timeline?.length },
+                  { id: 'timeline',   label: 'TIMELINE',   count: result.timeline?.length },
                   { id: 'hypotheses', label: 'HYPOTHESES', count: result.hypotheses?.length },
-                  { id: 'fix', label: 'FIX STEPS', count: result.fixSteps?.length },
+                  { id: 'fix',        label: 'FIX STEPS',  count: result.fixSteps?.length },
                 ].map(({ id, label, count }) => (
                   <button
                     key={id}
@@ -280,9 +412,7 @@ function Analyzer() {
                     }`}
                   >
                     {label}
-                    {count > 0 && (
-                      <span className="ml-1.5 opacity-60 font-mono text-[9px]">{count}</span>
-                    )}
+                    {count > 0 && <span className="ml-1.5 opacity-60 font-mono text-[9px]">{count}</span>}
                   </button>
                 ))}
               </div>
@@ -290,19 +420,15 @@ function Analyzer() {
           </div>
 
           <div className="flex-1 overflow-y-auto">
-            {/* Empty state */}
             {!isLoading && !result && !error && <EmptyState />}
-
-            {/* Loading state */}
             {isLoading && <LoadingState status={analysisStatus} />}
 
-            {/* Error */}
             {error && !isLoading && (
               <div className="p-6 animate-spring-in">
                 <div className="rounded-lg border border-nerve-danger/30 bg-nerve-danger/5 p-4"
-                  style={{ boxShadow: '0 0 30px rgba(239,68,68,0.08)' }}>
+                  style={{ boxShadow: '0 0 30px rgba(239,68,68,0.06)' }}>
                   <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-full bg-nerve-danger/10 border border-nerve-danger/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <div className="w-8 h-8 rounded-full bg-nerve-danger/10 border border-nerve-danger/30 flex items-center justify-center flex-shrink-0">
                       <svg className="w-4 h-4 text-nerve-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
@@ -316,44 +442,34 @@ function Analyzer() {
               </div>
             )}
 
-            {/* Results */}
             {hasResult && (
               <div className="p-5 space-y-4 animate-fade-in">
-                {/* Summary + Severity row */}
                 <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
-                  {/* Summary */}
                   <div className="rounded-lg p-4 border-gradient-raised"
-                    style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.03)' }}>
+                    style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.03)' }}>
                     <div className="flex items-center gap-2 mb-2">
-                      <div className="w-1 h-4 rounded-full bg-nerve-accent" style={{ boxShadow: '0 0 8px rgba(0,212,255,0.6)' }} />
+                      <div className="w-1 h-4 rounded-full bg-nerve-accent" style={{ boxShadow: '0 0 8px rgba(0,212,255,0.5)' }} />
                       <span className="text-[10px] font-display font-semibold tracking-[0.25em] text-nerve-accent/80">SUMMARY</span>
                     </div>
                     <p className="text-sm font-mono text-nerve-text leading-relaxed">{result.summary}</p>
                   </div>
-
-                  {/* Severity gauge */}
                   {result.severityScore && (
                     <SeverityGauge score={result.severityScore} reason={result.severityReason} />
                   )}
                 </div>
 
-                {/* Tab content */}
                 {activeTab === 'timeline' && result.timeline?.length > 0 && (
                   <div className="animate-spring-in">
                     <SectionHeader title="INCIDENT TIMELINE" count={result.timeline.length} unit="events" />
                     <TimelineView entries={result.timeline} />
                   </div>
                 )}
-
                 {activeTab === 'hypotheses' && result.hypotheses?.length > 0 && (
                   <div className="space-y-3 animate-spring-in">
                     <SectionHeader title="ROOT CAUSE HYPOTHESES" count={result.hypotheses.length} unit="ranked" />
-                    {result.hypotheses.map((h, i) => (
-                      <HypothesisCard key={i} hypothesis={h} index={i} />
-                    ))}
+                    {result.hypotheses.map((h, i) => <HypothesisCard key={i} hypothesis={h} index={i} />)}
                   </div>
                 )}
-
                 {activeTab === 'fix' && result.fixSteps?.length > 0 && (
                   <div className="animate-spring-in">
                     <SectionHeader title="REMEDIATION STEPS" subtitle="Calibrated to Hypothesis #1" count={result.fixSteps.length} unit="steps" />
@@ -361,7 +477,6 @@ function Analyzer() {
                   </div>
                 )}
 
-                {/* Raw output */}
                 <details className="group">
                   <summary className="text-[10px] font-mono text-nerve-muted hover:text-nerve-textDim cursor-pointer list-none flex items-center gap-1.5 select-none py-1">
                     <svg className="w-3 h-3 transition-transform duration-200 group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -369,7 +484,7 @@ function Analyzer() {
                     </svg>
                     Raw API response
                   </summary>
-                  <pre className="mt-2 p-3 rounded-lg border border-nerve-border bg-black/40 text-[10px] font-mono text-nerve-muted overflow-x-auto whitespace-pre-wrap leading-relaxed">
+                  <pre className="mt-2 p-3 rounded-lg border border-nerve-border bg-nerve-bg text-[10px] font-mono text-nerve-textDim overflow-x-auto whitespace-pre-wrap leading-relaxed">
                     {result.raw || JSON.stringify(result, null, 2)}
                   </pre>
                 </details>
@@ -385,21 +500,19 @@ function Analyzer() {
 /* ── Sub-components ─────────────────────────────────────────────────────────── */
 
 function NerveLogo({ size = 'sm' }) {
-  const isLg = size === 'lg'
+  const lg = size === 'lg'
   return (
-    <div className={`flex items-center gap-${isLg ? '4' : '3'}`}>
-      {/* Icon mark */}
-      <div className={`relative flex-shrink-0 ${isLg ? 'w-12 h-12' : 'w-8 h-8'}`}>
+    <div className={`flex items-center gap-${lg ? '4' : '2.5'}`}>
+      <div className={`relative flex-shrink-0 ${lg ? 'w-12 h-12' : 'w-7 h-7'}`}>
         <div className="absolute inset-0 rounded bg-nerve-critical/10 border border-nerve-critical/30"
-          style={{ boxShadow: '0 0 16px rgba(255,42,42,0.2)' }} />
+          style={{ boxShadow: '0 0 12px rgba(255,42,42,0.18)' }} />
         <div className="absolute inset-[3px] rounded-sm bg-nerve-critical/60"
-          style={{ boxShadow: '0 0 10px rgba(255,42,42,0.35)' }} />
+          style={{ boxShadow: '0 0 8px rgba(255,42,42,0.35)' }} />
         <div className="absolute inset-[7px] rounded-sm bg-nerve-bg" />
       </div>
-      {/* Wordmark */}
       <span
-        className={`font-display font-bold tracking-[0.25em] text-nerve-text ${isLg ? 'text-4xl' : 'text-xl'}`}
-        style={{ textShadow: '0 0 24px rgba(255,42,42,0.3)' }}
+        className={`font-display font-bold tracking-[0.25em] text-nerve-text ${lg ? 'text-4xl' : 'text-lg'}`}
+        style={{ textShadow: '0 0 20px rgba(255,42,42,0.25)' }}
       >
         NERVE
       </span>
@@ -408,57 +521,45 @@ function NerveLogo({ size = 'sm' }) {
 }
 
 function StatusPill({ color, label }) {
-  const colours = {
-    warn:    { dot: 'bg-nerve-warn',    text: 'text-nerve-warn',    bg: 'bg-nerve-warn/10',    border: 'border-nerve-warn/30' },
-    success: { dot: 'bg-nerve-success', text: 'text-nerve-success', bg: 'bg-nerve-success/10', border: 'border-nerve-success/30' },
-  }
-  const c = colours[color]
+  const c = {
+    warn:    'text-nerve-warn    bg-nerve-warn/10    border-nerve-warn/30',
+    success: 'text-nerve-success bg-nerve-success/10 border-nerve-success/30',
+  }[color]
+  const dot = { warn: 'bg-nerve-warn', success: 'bg-nerve-success' }[color]
   return (
-    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-display font-semibold tracking-wider ${c.text} ${c.bg} ${c.border}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
+    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-display font-semibold tracking-wider ${c}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
       {label}
     </div>
   )
 }
 
 function SeverityGauge({ score, reason }) {
-  const max = 10
-  const pct = score / max
+  const pct = score / 10
   const color = score >= 7 ? '#ff2a2a' : score >= 4 ? '#f59e0b' : '#00e5a0'
-  const glow = score >= 7 ? 'rgba(255,42,42,0.4)' : score >= 4 ? 'rgba(245,158,11,0.3)' : 'rgba(0,229,160,0.3)'
-
-  const r = 28
-  const circ = 2 * Math.PI * r
-  const dash = circ * 0.75
-  const gap = circ * 0.25
-  const filled = dash * pct
+  const glow  = score >= 7 ? 'rgba(255,42,42,0.4)' : score >= 4 ? 'rgba(245,158,11,0.3)' : 'rgba(0,229,160,0.3)'
+  const r = 28, circ = 2 * Math.PI * r
+  const arc = circ * 0.75
+  const filled = arc * pct
 
   return (
     <div className="flex-shrink-0 rounded-lg p-3 border-gradient-raised flex flex-col items-center gap-1"
-      style={{ minWidth: 88, boxShadow: '0 4px 24px rgba(0,0,0,0.3)' }}>
+      style={{ minWidth: 90, boxShadow: '0 4px 24px rgba(0,0,0,0.2)' }}>
       <span className="text-[9px] font-display font-semibold tracking-[0.2em] text-nerve-mutedBright">SEV</span>
       <div className="relative w-16 h-16">
         <svg viewBox="0 0 72 72" className="w-full h-full -rotate-[135deg]">
-          {/* Track */}
-          <circle cx="36" cy="36" r={r} fill="none" stroke="#1e1e40" strokeWidth="5"
-            strokeDasharray={`${dash} ${gap}`} strokeLinecap="round" />
-          {/* Fill */}
+          <circle cx="36" cy="36" r={r} fill="none" stroke="rgb(var(--c-border-bright))" strokeWidth="5"
+            strokeDasharray={`${arc} ${circ - arc}`} strokeLinecap="round" />
           <circle cx="36" cy="36" r={r} fill="none" stroke={color} strokeWidth="5"
-            strokeDasharray={`${filled} ${circ - filled}`}
-            strokeLinecap="round"
-            style={{ filter: `drop-shadow(0 0 6px ${glow})`, transition: 'stroke-dasharray 0.8s cubic-bezier(0.34,1.56,0.64,1)' }}
-          />
+            strokeDasharray={`${filled} ${circ - filled}`} strokeLinecap="round"
+            style={{ filter: `drop-shadow(0 0 6px ${glow})`, transition: 'stroke-dasharray 0.8s cubic-bezier(0.34,1.56,0.64,1)' }} />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="font-display font-bold text-2xl leading-none tabular-nums" style={{ color, textShadow: `0 0 16px ${glow}` }}>
-            {score}
-          </span>
+          <span className="font-display font-bold text-2xl tabular-nums" style={{ color, textShadow: `0 0 16px ${glow}` }}>{score}</span>
         </div>
       </div>
       <span className="text-[9px] font-mono text-nerve-muted">/10</span>
-      {reason && (
-        <p className="text-[9px] font-mono text-nerve-textDim text-center leading-tight mt-1 max-w-[80px]">{reason}</p>
-      )}
+      {reason && <p className="text-[9px] font-mono text-nerve-textDim text-center leading-tight mt-1 max-w-[82px]">{reason}</p>}
     </div>
   )
 }
@@ -470,9 +571,7 @@ function SectionHeader({ title, subtitle, count, unit }) {
         <h3 className="text-[10px] font-display font-semibold tracking-[0.25em] text-nerve-textDim">{title}</h3>
         {subtitle && <p className="text-[10px] font-mono text-nerve-muted mt-0.5">{subtitle}</p>}
       </div>
-      {count !== undefined && (
-        <span className="text-[10px] font-mono text-nerve-muted">{count} {unit}</span>
-      )}
+      {count !== undefined && <span className="text-[10px] font-mono text-nerve-muted">{count} {unit}</span>}
     </div>
   )
 }
@@ -480,16 +579,10 @@ function SectionHeader({ title, subtitle, count, unit }) {
 function EmptyState() {
   return (
     <div className="h-full flex flex-col items-center justify-center gap-5 p-8 text-center select-none">
-      {/* Animated radar rings */}
       <div className="relative w-20 h-20 flex items-center justify-center">
         {[0, 1, 2].map(i => (
           <div key={i} className="absolute rounded-full border border-nerve-border animate-pulse-slow"
-            style={{
-              width: `${(i + 1) * 28}px`,
-              height: `${(i + 1) * 28}px`,
-              animationDelay: `${i * 0.4}s`,
-              opacity: 0.4 - i * 0.1,
-            }} />
+            style={{ width: `${(i + 1) * 28}px`, height: `${(i + 1) * 28}px`, animationDelay: `${i * 0.4}s`, opacity: 0.4 - i * 0.1 }} />
         ))}
         <div className="w-3 h-3 rounded-full bg-nerve-mutedBright/40 border border-nerve-border" />
       </div>
@@ -504,10 +597,8 @@ function EmptyState() {
 function LoadingState({ status }) {
   const stages = ['Analyzing with Nemotron 49B…', 'Switching to fallback model…', 'Formatting output…']
   const currentIdx = stages.indexOf(status)
-
   return (
     <div className="h-full flex flex-col items-center justify-center gap-6 p-8 select-none">
-      {/* Spinning rings */}
       <div className="relative w-20 h-20">
         <div className="absolute inset-0 rounded-full border-2 border-nerve-border" />
         <div className="absolute inset-0 rounded-full border-2 border-t-nerve-accent animate-spin" />
@@ -515,23 +606,19 @@ function LoadingState({ status }) {
           style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
         <div className="absolute inset-6 rounded-full bg-nerve-accent/10 border border-nerve-accent/20 animate-pulse" />
       </div>
-
       <div className="text-center">
         <p className="text-sm font-display font-semibold tracking-[0.2em] text-nerve-accent">ANALYZING INCIDENT</p>
         <p className="text-[11px] font-mono text-nerve-muted mt-1">Correlating signals across log stream</p>
       </div>
-
-      {/* Stage indicators */}
       <div className="space-y-2.5 w-64">
         {stages.map((step, i) => {
-          const isDone = currentIdx > i
-          const isActive = currentIdx === i
+          const isDone = currentIdx > i, isActive = currentIdx === i
           return (
             <div key={i} className="flex items-center gap-3">
               <div className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
-                isDone    ? 'bg-nerve-success/20 border-nerve-success/50' :
-                isActive  ? 'bg-nerve-accent/20 border-nerve-accent/50 animate-pulse' :
-                            'bg-transparent border-nerve-border'
+                isDone   ? 'bg-nerve-success/20 border-nerve-success/50' :
+                isActive ? 'bg-nerve-accent/20 border-nerve-accent/50 animate-pulse' :
+                           'bg-transparent border-nerve-border'
               }`}>
                 {isDone && (
                   <svg className="w-3 h-3 text-nerve-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -546,6 +633,141 @@ function LoadingState({ status }) {
             </div>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+/* ── Intro overlay — pans from center to top ──────────────────────────────── */
+function IntroOverlay({ phase }) {
+  const exiting = phase === 'exit'
+  return (
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden"
+      style={{
+        background: exiting ? 'rgba(4,4,14,0)' : 'rgb(var(--c-bg))',
+        transition: 'background 0.9s ease',
+        pointerEvents: exiting ? 'none' : 'all',
+      }}
+    >
+      {/* Grid */}
+      {!exiting && (
+        <div className="absolute inset-0 opacity-[0.04]" style={{
+          backgroundImage: 'linear-gradient(rgb(var(--c-border-bright)) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--c-border-bright)) 1px, transparent 1px)',
+          backgroundSize: '40px 40px',
+        }} />
+      )}
+
+      {/* Scan line */}
+      {!exiting && (
+        <div className="absolute left-0 right-0 h-[1px] animate-scan pointer-events-none" style={{
+          background: 'linear-gradient(90deg, transparent, rgba(0,212,255,0.25), transparent)',
+          animationDuration: '3s',
+        }} />
+      )}
+
+      {/* Ambient glow */}
+      <div className="absolute inset-0 pointer-events-none transition-opacity duration-500"
+        style={{ opacity: exiting ? 0 : 1 }}>
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full"
+          style={{ background: 'radial-gradient(circle, rgba(255,42,42,0.06) 0%, transparent 65%)' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full"
+          style={{ background: 'radial-gradient(circle, rgba(0,212,255,0.04) 0%, transparent 65%)' }} />
+      </div>
+
+      {/* NERVE logo — flies to header on exit */}
+      <div style={{
+        transform: exiting ? 'translate(-44vw, -47vh) scale(0.16)' : 'scale(1)',
+        opacity: exiting ? 0 : 1,
+        transition: exiting
+          ? 'transform 0.75s cubic-bezier(0.55, 0, 0.75, 0.15), opacity 0.55s ease'
+          : 'none',
+        transformOrigin: 'center center',
+      }}>
+        <div className="flex flex-col items-center gap-5">
+          {/* Icon with concentric rings */}
+          <div className="relative flex items-center justify-center">
+            <div className="absolute w-40 h-40 rounded-full border border-nerve-accent/5 animate-spin" style={{ animationDuration: '30s' }} />
+            <div className="absolute w-28 h-28 rounded-full border border-dashed border-nerve-critical/8 animate-spin" style={{ animationDuration: '20s', animationDirection: 'reverse' }} />
+            <div className="absolute w-20 h-20 rounded-full border border-nerve-accent/8 animate-pulse-slow" />
+
+            <div className="relative w-16 h-16">
+              <div className="absolute inset-0 rounded-lg bg-nerve-critical/10 border border-nerve-critical/25"
+                style={{ boxShadow: '0 0 50px rgba(255,42,42,0.3), 0 0 100px rgba(255,42,42,0.1)' }} />
+              <div className="absolute inset-[5px] rounded bg-nerve-critical/60"
+                style={{ boxShadow: '0 0 24px rgba(255,42,42,0.6)' }} />
+              <div className="absolute inset-[12px] rounded-sm bg-nerve-bg" />
+            </div>
+          </div>
+
+          <div className="text-center">
+            <h1 className="font-display font-bold text-6xl tracking-[0.35em] text-nerve-text"
+              style={{ textShadow: '0 0 50px rgba(255,42,42,0.45), 0 0 100px rgba(255,42,42,0.18)' }}>
+              NERVE
+            </h1>
+            <p className="font-mono text-sm text-nerve-textDim tracking-[0.4em] mt-2 uppercase">
+              Incident Root Cause Analyzer
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Light mode warning modal ─────────────────────────────────────────────── */
+function LightModeWarning({ onConfirm, onCancel }) {
+  return (
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-6"
+      style={{ background: 'rgba(4,4,14,0.92)', backdropFilter: 'blur(12px)' }}>
+      <div className="max-w-md w-full rounded-xl border border-nerve-critical/40 bg-nerve-panel p-6 animate-spring-in"
+        style={{ boxShadow: '0 0 80px rgba(255,42,42,0.18), 0 32px 64px rgba(0,0,0,0.7)' }}>
+
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-11 h-11 rounded-full bg-nerve-critical/15 border border-nerve-critical/50 flex items-center justify-center flex-shrink-0"
+            style={{ boxShadow: '0 0 24px rgba(255,42,42,0.3)' }}>
+            <svg className="w-5 h-5 text-nerve-critical" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-nerve-critical font-display font-bold tracking-[0.2em] text-sm">CRITICAL WARNING</p>
+            <p className="text-nerve-textDim font-mono text-[10px] mt-0.5">Irreversible reputation damage ahead</p>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="space-y-3 text-xs font-mono text-nerve-textDim leading-relaxed mb-5">
+          <p>You are attempting to enable <span className="text-nerve-warn font-semibold">LIGHT MODE</span>.</p>
+          <p>Our systems have already notified:</p>
+          <ul className="space-y-1 ml-3 text-nerve-textDim">
+            <li>• Your entire engineering org (they can see your screen)</li>
+            <li>• The ghost of Dennis Ritchie (he is deeply disappointed)</li>
+            <li>• Three NASA satellites (your laptop is now a beacon)</li>
+            <li>• HR (the paperwork has been drafted, signed, and laminated)</li>
+            <li>• Your dark mode wallpaper (it has filed for emotional damages)</li>
+          </ul>
+          <p>Known side effects: uncontrollable urge to use Comic Sans, spontaneous LinkedIn posts about "productivity hacks", and being the person who microwaves fish in the office kitchen.</p>
+          <p>Your SSH sessions will refuse connection out of protest. Your git blame will never be the same. Stack Overflow is already drafting a passive-aggressive comment about your question formatting.</p>
+          <p className="text-nerve-mutedBright text-[10px]">This incident has been logged. Reference: JIRA-YOUMESSED-UP-420.</p>
+        </div>
+
+        {/* Buttons */}
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-2.5 rounded-lg border border-nerve-success/40 bg-nerve-success/10 text-nerve-success text-xs font-display font-bold tracking-wider hover:bg-nerve-success/20 transition-colors"
+          >
+            ABORT — My Eyes Are Fine
+          </button>
+          <button
+            onClick={onConfirm}
+            className="py-2.5 px-4 rounded-lg border border-nerve-critical/25 bg-nerve-critical/8 text-nerve-critical text-xs font-display font-semibold tracking-wider hover:bg-nerve-critical/15 transition-colors"
+          >
+            Blind Me
+          </button>
+        </div>
       </div>
     </div>
   )
