@@ -8,7 +8,7 @@ const prisma = new PrismaClient()
 
 // POST /api/analyze  — SSE stream: status events then a final result event
 router.post('/analyze', requireAuth(), async (req, res) => {
-  const { userId } = req.auth
+  const { userId } = req.auth ?? {}
   const { logData, scenarioId } = req.body
 
   if (!logData || typeof logData !== 'string') {
@@ -55,7 +55,7 @@ router.post('/analyze', requireAuth(), async (req, res) => {
 
 // GET /api/history  — list of past analyses for the current user
 router.get('/history', requireAuth(), async (req, res) => {
-  const { userId } = req.auth
+  const { userId } = req.auth ?? {}
   try {
     const entries = await prisma.analysis.findMany({
       where: { userId },
@@ -80,7 +80,7 @@ router.get('/history', requireAuth(), async (req, res) => {
 
 // GET /api/history/:id  — full result for a specific analysis
 router.get('/history/:id', requireAuth(), async (req, res) => {
-  const { userId } = req.auth
+  const { userId } = req.auth ?? {}
   try {
     const entry = await prisma.analysis.findFirst({
       where: { id: req.params.id, userId },
@@ -94,7 +94,7 @@ router.get('/history/:id', requireAuth(), async (req, res) => {
 
 // DELETE /api/history/:id
 router.delete('/history/:id', requireAuth(), async (req, res) => {
-  const { userId } = req.auth
+  const { userId } = req.auth ?? {}
   try {
     await prisma.analysis.deleteMany({ where: { id: req.params.id, userId } })
     res.json({ ok: true })

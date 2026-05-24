@@ -19,7 +19,8 @@ app.use(cors({
 }))
 
 // Clerk only needed on API routes — keeps static serving unaffected
-app.use('/api', clerkMiddleware(), analysisRouter)
+// Pass VITE_CLERK_PUBLISHABLE_KEY explicitly; @clerk/express looks for CLERK_PUBLISHABLE_KEY by default
+app.use('/api', clerkMiddleware({ publishableKey: process.env.VITE_CLERK_PUBLISHABLE_KEY }), analysisRouter)
 
 // Serve the built SPA in production
 if (process.env.NODE_ENV === 'production') {
@@ -27,5 +28,11 @@ if (process.env.NODE_ENV === 'production') {
   app.use(express.static(dist))
   app.get('*', (_req, res) => res.sendFile(join(dist, 'index.html')))
 }
+
+// Surface errors as JSON instead of Express's default HTML page
+app.use((err, _req, res, _next) => {
+  console.error('[NERVE] Unhandled error:', err.message, err.stack)
+  res.status(err.status || 500).json({ error: err.message || 'Internal server error' })
+})
 
 app.listen(PORT, () => console.log(`NERVE server on port ${PORT}`))
