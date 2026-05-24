@@ -16,6 +16,7 @@ export default function App() {
   const [fromCache, setFromCache] = useState(false)
   const [validationErrors, setValidationErrors] = useState([])
   const [activeTab, setActiveTab] = useState('timeline')
+  const [analysisStatus, setAnalysisStatus] = useState('')
 
   const handleScenarioLoad = (scenario) => {
     setLogs(scenario.logs)
@@ -43,7 +44,7 @@ export default function App() {
     setResult(null)
 
     try {
-      const { result: parsed, fromCache: cached } = await runAnalysis(logs, activeScenario)
+      const { result: parsed, fromCache: cached } = await runAnalysis(logs, activeScenario, setAnalysisStatus)
       setResult(parsed)
       setFromCache(cached)
       setActiveTab('timeline')
@@ -51,6 +52,7 @@ export default function App() {
       setError(err.message)
     } finally {
       setIsLoading(false)
+      setAnalysisStatus('')
     }
   }
 
@@ -81,7 +83,7 @@ export default function App() {
           {isLoading && (
             <div className="flex items-center gap-2 text-xs font-mono text-nerve-accent animate-pulse">
               <span className="w-1.5 h-1.5 rounded-full bg-nerve-accent animate-ping" />
-              Analyzing incident…
+              {analysisStatus || 'Analyzing incident…'}
             </div>
           )}
           {hasResult && fromCache && (
@@ -183,12 +185,26 @@ export default function App() {
                   <p className="text-xs font-mono text-nerve-muted">NERVE is correlating signals across your log data</p>
                 </div>
                 <div className="w-64 space-y-2">
-                  {['Parsing log structure', 'Building event timeline', 'Scoring hypotheses'].map((step, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-nerve-accent animate-pulse" style={{ animationDelay: `${i * 400}ms` }} />
-                      <span className="text-[11px] font-mono text-nerve-muted">{step}</span>
-                    </div>
-                  ))}
+                  {[
+                    'Analyzing with Nemotron 49B…',
+                    'Switching to fallback model…',
+                    'Formatting output…',
+                  ].map((step, i) => {
+                    const stages = ['Analyzing with Nemotron 49B…', 'Switching to fallback model…', 'Formatting output…']
+                    const currentIdx = stages.indexOf(analysisStatus)
+                    const isDone = currentIdx > i
+                    const isActive = currentIdx === i
+                    return (
+                      <div key={i} className="flex items-center gap-2">
+                        <div className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                          isDone ? 'bg-nerve-success' : isActive ? 'bg-nerve-accent animate-pulse' : 'bg-nerve-border'
+                        }`} />
+                        <span className={`text-[11px] font-mono transition-colors ${
+                          isDone ? 'text-nerve-success' : isActive ? 'text-nerve-accent' : 'text-nerve-muted'
+                        }`}>{step}</span>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}
