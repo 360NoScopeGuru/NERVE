@@ -116,6 +116,72 @@ export const SCENARIOS = [
   },
 ]
 
+// Pre-computed fallback for Scenario B (used when API times out)
+export const SCENARIO_B_FALLBACK = {
+  summary: "A misconfigured db.pool.max_connections (5 instead of 50) shipped in payments-api v2.4.2 exhausted the DB connection pool within seconds of deployment, causing payment failures and a P1 alert; rollback to v2.4.1 restored service in under 60 seconds.",
+  timeline: [
+    { time: "03:11:02", event: "Deploy initiated: payments-api v2.4.1 → v2.4.2 by ci-bot" },
+    { time: "03:11:09", event: "Rolling update started: 3/6 pods replaced" },
+    { time: "03:11:14", event: "Rolling update complete: 6/6 pods replaced" },
+    { time: "03:11:15", event: "payments-api v2.4.2 restarts on all pods" },
+    { time: "03:11:16", event: "WARN: db.pool.max_connections=5 loaded — down from 50 in v2.4.1" },
+    { time: "03:11:20", event: "Service begins accepting traffic" },
+    { time: "03:11:23", event: "DB pool near limit: 4/5 connections active under normal traffic" },
+    { time: "03:11:25", event: "Pool exhausted — first payment transactions fail" },
+    { time: "03:11:27", event: "Postgres: idle connections hit 0, all slots occupied" },
+    { time: "03:11:29", event: "Load balancer: payments-api response time 4821ms (threshold: 2000ms)" },
+    { time: "03:11:30", event: "checkout-service dependency timeouts — orders failing at payment step" },
+    { time: "03:11:32", event: "P1 alert fired: payment success rate 3% (baseline: 99.1%)" },
+    { time: "03:11:36", event: "Load balancer removes degraded pod payments-api-7d9f from rotation" },
+    { time: "03:11:40", event: "Rollback triggered: v2.4.2 → v2.4.1" },
+    { time: "03:11:47", event: "Rollback complete: v2.4.1 fully restored" },
+    { time: "03:11:49", event: "db.pool.max_connections=50 confirmed restored" },
+    { time: "03:11:55", event: "Payment transactions resuming normally" },
+    { time: "03:12:01", event: "Success rate recovered to 97.4% — incident resolving" },
+  ],
+  hypotheses: [
+    {
+      title: "Misconfigured db.pool.max_connections in v2.4.2 deploy",
+      strength: "HIGH",
+      explanation: "A config regression in v2.4.2 set db.pool.max_connections to 5 (from 50), causing the pool to exhaust within 3 seconds of receiving normal traffic — the rollback immediately confirmed this as root cause by restoring the correct value.",
+      evidence: [
+        "03:11:16 [payments-api] WARN Config loaded: db.pool.max_connections=5 (was 50)",
+        "03:11:23 [payments-api] WARN DB connection pool near limit: 4/5 connections active",
+        "03:11:25 [payments-api] ERROR DB connection pool exhausted: timeout acquiring connection after 3002ms",
+        "03:11:49 [payments-api] INFO Config loaded: db.pool.max_connections=50 (restored)",
+      ],
+    },
+    {
+      title: "No config validation gate in the deploy pipeline",
+      strength: "MED",
+      explanation: "The deployment pipeline had no pre-flight check on critical config values, allowing a 10x regression in pool size to reach production without any automated signal.",
+      evidence: [
+        "03:11:02 [deployment-service] INFO Deploy initiated: payments-api v2.4.1 -> v2.4.2 by ci-bot",
+        "03:11:16 [payments-api] WARN Config loaded: db.pool.max_connections=5 (was 50)",
+        "03:11:40 [deployment-service] WARN Rollback triggered for payments-api v2.4.2 -> v2.4.1",
+      ],
+    },
+    {
+      title: "checkout-service lacks circuit breaker on payments-api",
+      strength: "LOW",
+      explanation: "checkout-service continued firing requests at payments-api after pool exhaustion rather than tripping a circuit breaker, amplifying order failure count during the incident window.",
+      evidence: [
+        "03:11:30 [checkout-service] ERROR Order failed at payment step [order_id=ORD-99123]",
+        "03:11:31 [checkout-service] ERROR Order failed at payment step [order_id=ORD-99124]",
+        "03:11:35 [checkout-service] ERROR Order failed at payment step [order_id=ORD-99126]",
+      ],
+    },
+  ],
+  fixSteps: [
+    "Rollback already applied: `kubectl rollout undo deployment/payments-api` — verify v2.4.1 is stable before proceeding",
+    "Audit the config diff: `git diff v2.4.1..v2.4.2 -- config/` — identify where max_connections=5 was introduced and by whom",
+    "Fix v2.4.2 config to restore db.pool.max_connections=50 and add a config schema test that asserts pool size >= 20",
+    "Add a pre-deploy CI gate: parse the rendered config and assert critical numeric values are within safe bounds before rollout begins",
+    "Add Prometheus alert: `payments_api_db_pool_active / payments_api_db_pool_max > 0.8` → page on-call before pool exhausts",
+    "Implement a circuit breaker in checkout-service for the payments-api dependency (e.g. resilience4j or Hystrix) to shed load automatically during future payment degradation",
+  ],
+}
+
 // Pre-computed fallback for Scenario A (used when API times out)
 export const SCENARIO_A_FALLBACK = {
   summary: "Redis primary ran out of memory, causing key eviction and connection pool exhaustion across all API gateways, triggering a full P1 503 outage that cascaded into a secondary Postgres connection saturation event after failover.",

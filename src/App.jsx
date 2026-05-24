@@ -87,7 +87,7 @@ export default function App() {
           {hasResult && fromCache && (
             <div className="flex items-center gap-1.5 text-[10px] font-mono text-nerve-warn bg-nerve-warn/10 border border-nerve-warn/30 px-2 py-1 rounded">
               <span className="w-1.5 h-1.5 rounded-full bg-nerve-warn" />
-              Live Analysis Complete
+              Cached result
             </div>
           )}
           {hasResult && !fromCache && (

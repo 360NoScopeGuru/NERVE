@@ -1,9 +1,11 @@
 import { NERVE_SYSTEM_PROMPT } from '../constants/systemPrompt'
-import { SCENARIO_A_FALLBACK } from '../constants/fixtures'
+import { SCENARIO_A_FALLBACK, SCENARIO_B_FALLBACK } from '../constants/fixtures'
 import { parseNerveResponse } from '../utils/responseParser'
 
 const API_URL = '/nvidia-api/v1/chat/completions'
 const TIMEOUT_MS = 60000
+
+const FALLBACKS = { A: SCENARIO_A_FALLBACK, B: SCENARIO_B_FALLBACK }
 
 export async function runAnalysis(logData, scenarioId) {
   const apiKey = import.meta.env.VITE_NVIDIA_API_KEY
@@ -36,11 +38,22 @@ export async function runAnalysis(logData, scenarioId) {
     clearTimeout(timer)
 
     if (!res.ok) {
-      const err = await res.text().catch(() => res.statusText)
-      throw new Error(`NVIDIA API error ${res.status}: ${err}`)
+      const body = await res.text().catch(() => res.statusText)
+      console.error('[NERVE] API error', { status: res.status, body })
+      throw new Error(`NVIDIA API error ${res.status}: ${body}`)
     }
 
     const data = await res.json()
+    console.info('[NERVE] API response', {
+      id: data.id,
+      model: data.model,
+      finish_reason: data.choices?.[0]?.finish_reason,
+      stop_reason: data.choices?.[0]?.stop_reason,
+      usage: data.usage,
+      content_length: data.choices?.[0]?.message?.content?.length,
+      content_preview: data.choices?.[0]?.message?.content?.slice(0, 200),
+    })
+
     const raw = data.choices?.[0]?.message?.content
     if (!raw) throw new Error('Empty response from API')
 
@@ -48,9 +61,18 @@ export async function runAnalysis(logData, scenarioId) {
   } catch (err) {
     clearTimeout(timer)
 
-    // On timeout, fall back to pre-computed result for Scenario A only
-    if ((err.name === 'AbortError' || err.message?.includes('abort')) && scenarioId === 'A') {
-      return { result: SCENARIO_A_FALLBACK, fromCache: true }
+    const isAbort = err.name === 'AbortError' || err.message?.toLowerCase().includes('abort')
+    console.error('[NERVE] Fetch error', {
+      name: err.name,
+      message: err.message,
+      isAbort,
+      scenarioId,
+      hasFallback: scenarioId in FALLBACKS,
+    })
+
+    if (isAbort && scenarioId in FALLBACKS) {
+      console.info(`[NERVE] Using pre-computed fallback for Scenario ${scenarioId}`)
+      return { result: FALLBACKS[scenarioId], fromCache: true }
     }
 
     throw err
