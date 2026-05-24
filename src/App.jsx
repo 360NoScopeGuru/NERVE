@@ -118,14 +118,7 @@ function SignInScreen() {
         </div>
 
         {/* Sign-in form card */}
-        <div className="w-full rounded-xl animate-intro-in" style={{
-          animationDelay: '300ms',
-          background: 'rgba(8,8,24,0.85)',
-          backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(30,30,64,0.9)',
-          boxShadow: '0 32px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04)',
-          overflow: 'clip',
-        }}>
+        <div className="w-full animate-intro-in" style={{ animationDelay: '300ms' }}>
           <SignIn
             routing="hash"
             appearance={{
@@ -144,7 +137,10 @@ function SignInScreen() {
                 borderRadius:                 '0.5rem',
               },
               elements: {
-                card:              { background: 'transparent', boxShadow: 'none', border: 'none' },
+                card: {
+                  border:     '1px solid rgba(30,30,64,0.9)',
+                  boxShadow:  '0 32px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04)',
+                },
                 headerTitle:       { color: 'rgb(221, 228, 240)' },
                 headerSubtitle:    { color: 'rgb(172, 172, 204)' },
                 socialButtonsBlockButton: {
