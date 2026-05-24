@@ -3,7 +3,7 @@ import { SCENARIO_A_FALLBACK, SCENARIO_B_FALLBACK } from '../constants/fixtures'
 import { parseNerveResponse } from '../utils/responseParser'
 
 const API_URL = '/nvidia-api/v1/chat/completions'
-const TIMEOUT_MS = 60000
+const TIMEOUT_MS = 1800000 // 30 minutes
 
 const FALLBACKS = { A: SCENARIO_A_FALLBACK, B: SCENARIO_B_FALLBACK }
 
