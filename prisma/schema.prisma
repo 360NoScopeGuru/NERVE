@@ -1,0 +1,22 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Analysis {
+  id           String   @id @default(cuid())
+  userId       String
+  scenarioId   String?
+  inputSnippet String
+  summary      String
+  severityScore Int?
+  result       Json
+  fromCache    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+}

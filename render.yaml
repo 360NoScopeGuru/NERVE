@@ -1,0 +1,28 @@
+databases:
+  - name: nerve-db
+    databaseName: nerve
+    user: nerve
+    plan: free
+
+services:
+  - type: web
+    name: nerve
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nerve-db
+          property: connectionString
+      - key: NVIDIA_API_KEY
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: VITE_CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001

@@ -1,13 +1,43 @@
 import { useState } from 'react'
+import { SignedIn, SignedOut, SignIn, UserButton, useAuth } from '@clerk/clerk-react'
 import ScenarioLoader from './components/ScenarioLoader'
 import LogInputPanel from './components/LogInputPanel'
 import TimelineView from './components/TimelineView'
 import HypothesisCard from './components/HypothesisCard'
 import FixSteps from './components/FixSteps'
+import HistorySidebar from './components/HistorySidebar'
 import { runAnalysis } from './components/AnalysisEngine'
 import { validateLogs } from './utils/logValidator'
 
 export default function App() {
+  return (
+    <>
+      <SignedOut>
+        <div className="h-screen bg-nerve-bg flex items-center justify-center">
+          <div className="flex flex-col items-center gap-6">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="relative w-10 h-10 flex-shrink-0">
+                <div className="absolute inset-0 rounded bg-nerve-critical/10 border border-nerve-critical/40" style={{ boxShadow: '0 0 16px rgba(255,42,42,0.25)' }} />
+                <div className="absolute inset-[3px] rounded-sm bg-nerve-critical/70" style={{ boxShadow: '0 0 10px rgba(255,42,42,0.4)' }} />
+                <div className="absolute inset-[7px] rounded-sm bg-nerve-bg" />
+              </div>
+              <span className="font-mono font-black text-3xl tracking-[0.25em] text-nerve-text" style={{ textShadow: '0 0 20px rgba(255,42,42,0.3)' }}>NERVE</span>
+            </div>
+            <p className="text-xs font-mono text-nerve-muted mb-2">SRE Incident Analyzer — sign in to continue</p>
+            <SignIn routing="hash" />
+          </div>
+        </div>
+      </SignedOut>
+      <SignedIn>
+        <Analyzer />
+      </SignedIn>
+    </>
+  )
+}
+
+function Analyzer() {
+  const { getToken } = useAuth()
+
   const [logs, setLogs] = useState('')
   const [activeScenario, setActiveScenario] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -17,7 +47,8 @@ export default function App() {
   const [validationErrors, setValidationErrors] = useState([])
   const [activeTab, setActiveTab] = useState('timeline')
   const [analysisStatus, setAnalysisStatus] = useState('')
-  const [activeModel, setActiveModel] = useState('nvidia/llama-3.3-nemotron-super-49b-v1')
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [historyKey, setHistoryKey] = useState(0)
 
   const handleScenarioLoad = (scenario) => {
     setLogs(scenario.logs)
@@ -35,32 +66,32 @@ export default function App() {
 
   const handleAnalyze = async () => {
     const { valid, errors } = validateLogs(logs)
-    if (!valid) {
-      setValidationErrors(errors)
-      return
-    }
+    if (!valid) { setValidationErrors(errors); return }
     setValidationErrors([])
     setIsLoading(true)
     setError(null)
     setResult(null)
-    setActiveModel('nvidia/llama-3.3-nemotron-super-49b-v1')
-
-    const handleStatus = (status) => {
-      setAnalysisStatus(status)
-      if (status === 'Switching to fallback model…') setActiveModel('meta/llama-3.1-8b-instruct')
-    }
 
     try {
-      const { result: parsed, fromCache: cached } = await runAnalysis(logs, activeScenario, handleStatus)
+      const token = await getToken()
+      const { result: parsed, fromCache: cached } = await runAnalysis(logs, activeScenario, setAnalysisStatus, token)
       setResult(parsed)
       setFromCache(cached)
       setActiveTab('timeline')
+      setHistoryKey(k => k + 1)
     } catch (err) {
       setError(err.message)
     } finally {
       setIsLoading(false)
       setAnalysisStatus('')
     }
+  }
+
+  const handleLoadFromHistory = (historicResult, cached) => {
+    setResult(historicResult)
+    setFromCache(cached)
+    setActiveTab('timeline')
+    setError(null)
   }
 
   const hasResult = result && !isLoading
@@ -70,22 +101,36 @@ export default function App() {
       {/* Header */}
       <header className="flex-shrink-0 border-b border-nerve-border bg-nerve-panel px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-4">
+          {/* History toggle */}
+          <button
+            onClick={() => setSidebarOpen(o => !o)}
+            className="flex items-center gap-1.5 text-[10px] font-mono text-nerve-muted hover:text-nerve-text border border-nerve-border/50 hover:border-nerve-accent/30 px-2 py-1 rounded transition-colors"
+            title="Toggle history"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            History
+          </button>
+
+          <div className="h-6 w-px bg-nerve-border" />
+
           <div className="flex items-center gap-3">
-            {/* Logo mark */}
             <div className="relative w-8 h-8 flex-shrink-0">
               <div className="absolute inset-0 rounded bg-nerve-critical/10 border border-nerve-critical/40" style={{ boxShadow: '0 0 12px rgba(255,42,42,0.25)' }} />
               <div className="absolute inset-[3px] rounded-sm bg-nerve-critical/70" style={{ boxShadow: '0 0 8px rgba(255,42,42,0.4)' }} />
               <div className="absolute inset-[6px] rounded-sm bg-nerve-bg" />
             </div>
-            {/* Wordmark */}
             <div className="flex flex-col leading-none">
               <span className="font-mono font-black text-2xl tracking-[0.2em] text-nerve-text" style={{ letterSpacing: '0.25em', textShadow: '0 0 20px rgba(255,42,42,0.3)' }}>NERVE</span>
               <span className="text-[9px] font-mono uppercase tracking-[0.3em] text-nerve-critical/70 mt-0.5">Incident Analyzer</span>
             </div>
           </div>
+
           <div className="h-6 w-px bg-nerve-border" />
           <span className="text-[11px] font-mono text-nerve-muted">Root Cause Analysis · SRE War Room</span>
         </div>
+
         <div className="flex items-center gap-3">
           {isLoading && (
             <div className="flex items-center gap-2 text-xs font-mono text-nerve-accent animate-pulse">
@@ -105,24 +150,27 @@ export default function App() {
               Live analysis
             </div>
           )}
-          <div className={`text-[10px] font-mono border px-2 py-1 rounded transition-colors ${
-            activeModel === 'meta/llama-3.1-8b-instruct'
-              ? 'text-nerve-warn/80 border-nerve-warn/30'
-              : 'text-nerve-muted border-nerve-border/50'
-          }`}>
-            {activeModel.replace('-v1', '')}
+          <div className="text-[10px] font-mono text-nerve-muted border border-nerve-border/50 px-2 py-1 rounded">
+            NERVE Engine v1.0
           </div>
+          <UserButton afterSignOutUrl="/" />
         </div>
       </header>
 
-      {/* Main split panel */}
+      {/* Body */}
       <div className="flex-1 flex overflow-hidden">
+        {/* History sidebar */}
+        <HistorySidebar
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen(o => !o)}
+          onLoadResult={handleLoadFromHistory}
+          refreshKey={historyKey}
+        />
+
         {/* Left panel — Input */}
-        <div className="w-[45%] flex-shrink-0 border-r border-nerve-border flex flex-col">
+        <div className="flex-shrink-0 border-r border-nerve-border flex flex-col" style={{ width: sidebarOpen ? '38%' : '45%', transition: 'width 0.2s' }}>
           <div className="flex-shrink-0 border-b border-nerve-border px-4 py-2.5 flex items-center justify-between">
-            <span className="text-[11px] font-mono font-semibold uppercase tracking-widest text-nerve-muted">
-              Log Input
-            </span>
+            <span className="text-[11px] font-mono font-semibold uppercase tracking-widest text-nerve-muted">Log Input</span>
           </div>
           <div className="flex-shrink-0 border-b border-nerve-border/50 px-4 py-3">
             <ScenarioLoader onLoad={handleScenarioLoad} activeScenario={activeScenario} />
@@ -141,9 +189,7 @@ export default function App() {
         {/* Right panel — Output */}
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-shrink-0 border-b border-nerve-border px-4 py-2.5 flex items-center justify-between">
-            <span className="text-[11px] font-mono font-semibold uppercase tracking-widest text-nerve-muted">
-              Analysis
-            </span>
+            <span className="text-[11px] font-mono font-semibold uppercase tracking-widest text-nerve-muted">Analysis</span>
             {hasResult && (
               <div className="flex gap-1">
                 {['timeline', 'hypotheses', 'fix'].map(tab => (
@@ -196,23 +242,15 @@ export default function App() {
                   <p className="text-xs font-mono text-nerve-muted">NERVE is correlating signals across your log data</p>
                 </div>
                 <div className="w-64 space-y-2">
-                  {[
-                    'Analyzing with Nemotron 49B…',
-                    'Switching to fallback model…',
-                    'Formatting output…',
-                  ].map((step, i) => {
+                  {['Analyzing with Nemotron 49B…', 'Switching to fallback model…', 'Formatting output…'].map((step, i) => {
                     const stages = ['Analyzing with Nemotron 49B…', 'Switching to fallback model…', 'Formatting output…']
                     const currentIdx = stages.indexOf(analysisStatus)
                     const isDone = currentIdx > i
                     const isActive = currentIdx === i
                     return (
                       <div key={i} className="flex items-center gap-2">
-                        <div className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                          isDone ? 'bg-nerve-success' : isActive ? 'bg-nerve-accent animate-pulse' : 'bg-nerve-border'
-                        }`} />
-                        <span className={`text-[11px] font-mono transition-colors ${
-                          isDone ? 'text-nerve-success' : isActive ? 'text-nerve-accent' : 'text-nerve-muted'
-                        }`}>{step}</span>
+                        <div className={`w-1.5 h-1.5 rounded-full transition-colors ${isDone ? 'bg-nerve-success' : isActive ? 'bg-nerve-accent animate-pulse' : 'bg-nerve-border'}`} />
+                        <span className={`text-[11px] font-mono transition-colors ${isDone ? 'text-nerve-success' : isActive ? 'text-nerve-accent' : 'text-nerve-muted'}`}>{step}</span>
                       </div>
                     )
                   })}
@@ -261,8 +299,7 @@ export default function App() {
                     <div className="flex-shrink-0 flex items-baseline gap-1">
                       <span className={`text-5xl font-mono font-black leading-none tabular-nums ${
                         result.severityScore >= 7 ? 'text-nerve-critical' :
-                        result.severityScore >= 4 ? 'text-nerve-warn' :
-                        'text-nerve-success'
+                        result.severityScore >= 4 ? 'text-nerve-warn' : 'text-nerve-success'
                       }`} style={result.severityScore >= 7 ? { textShadow: '0 0 24px rgba(255,42,42,0.4)' } : undefined}>
                         {result.severityScore}
                       </span>
