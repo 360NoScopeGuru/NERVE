@@ -171,13 +171,14 @@ export async function runAnalysis(logData, scenarioId, onStatus) {
 
   // ── STAGE 3: JSON formatter (Llama 8B, 20s) ──────────────────────────────
   onStatus('Formatting output…')
+  let formatterOutput = null
   try {
     const formatterMessages = [
       { role: 'system', content: FORMATTER_PROMPT },
       { role: 'user', content: rawText },
     ]
-    const jsonText = await callModel(FALLBACK_MODEL, formatterMessages, 20000, 4096)
-    const parsed = extractJSON(jsonText)
+    formatterOutput = await callModel(FALLBACK_MODEL, formatterMessages, 20000, 4096)
+    const parsed = extractJSON(formatterOutput)
 
     if (!validateResult(parsed)) {
       console.warn('[NERVE] Stage 3 JSON failed validation — falling back to parser')
@@ -192,6 +193,18 @@ export async function runAnalysis(logData, scenarioId, onStatus) {
 
     // Safety net: run the text parser on the raw Stage 1/2 output
     const parsed = parseNerveResponse(rawText)
+
+    // Salvage severityScore/severityReason from the formatter output via regex
+    // even when the JSON is otherwise malformed
+    if (formatterOutput) {
+      const scoreMatch = formatterOutput.match(/"severityScore"\s*:\s*(\d+)/)
+      const reasonMatch = formatterOutput.match(/"severityReason"\s*:\s*"((?:[^"\\]|\\.)*)"/)
+      if (scoreMatch) {
+        parsed.severityScore = Math.min(10, Math.max(1, parseInt(scoreMatch[1], 10)))
+        parsed.severityReason = reasonMatch ? reasonMatch[1].replace(/\\"/g, '"') : ''
+        console.info('[NERVE] Salvaged severityScore:', parsed.severityScore)
+      }
+    }
     if (parsed.hypotheses.length >= 1) {
       return { result: parsed, fromCache: false }
     }
