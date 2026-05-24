@@ -12,6 +12,7 @@ model Analysis {
   userId       String
   scenarioId   String?
   inputSnippet String
+  logData      String
   summary      String
   severityScore Int?
   result       Json

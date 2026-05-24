@@ -34,6 +34,7 @@ router.post('/analyze', requireAuth(), async (req, res) => {
           userId,
           scenarioId: scenarioId || null,
           inputSnippet: logData.slice(0, 200),
+          logData,
           summary: result.summary || '',
           severityScore: result.severityScore ?? null,
           result,

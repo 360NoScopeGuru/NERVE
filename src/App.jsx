@@ -87,11 +87,12 @@ function Analyzer() {
     }
   }
 
-  const handleLoadFromHistory = (historicResult, cached) => {
+  const handleLoadFromHistory = (historicResult, cached, logData) => {
     setResult(historicResult)
     setFromCache(cached)
     setActiveTab('timeline')
     setError(null)
+    if (logData) setLogs(logData)
   }
 
   const hasResult = result && !isLoading
