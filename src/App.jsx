@@ -124,6 +124,7 @@ function SignInScreen() {
           backdropFilter: 'blur(20px)',
           border: '1px solid rgba(30,30,64,0.9)',
           boxShadow: '0 32px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04)',
+          overflow: 'clip',
         }}>
           <SignIn
             routing="hash"
