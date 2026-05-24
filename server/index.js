@@ -17,9 +17,9 @@ app.use(cors({
     : 'http://localhost:5173',
   credentials: true,
 }))
-app.use(clerkMiddleware())
 
-app.use('/api', analysisRouter)
+// Clerk only needed on API routes — keeps static serving unaffected
+app.use('/api', clerkMiddleware(), analysisRouter)
 
 // Serve the built SPA in production
 if (process.env.NODE_ENV === 'production') {
