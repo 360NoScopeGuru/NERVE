@@ -249,6 +249,28 @@ export default function App() {
                   <p className="text-sm font-mono text-nerve-text leading-relaxed">{result.summary}</p>
                 </div>
 
+                {/* Severity score */}
+                {result.severityScore && (
+                  <div className="rounded border border-nerve-border bg-nerve-panel p-4 flex items-center justify-between gap-4 animate-fade-in">
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-mono uppercase tracking-widest text-nerve-muted">Severity Score</span>
+                      {result.severityReason && (
+                        <p className="text-xs font-mono text-nerve-textDim mt-1 leading-relaxed">{result.severityReason}</p>
+                      )}
+                    </div>
+                    <div className="flex-shrink-0 flex items-baseline gap-1">
+                      <span className={`text-5xl font-mono font-black leading-none tabular-nums ${
+                        result.severityScore >= 7 ? 'text-nerve-critical' :
+                        result.severityScore >= 4 ? 'text-nerve-warn' :
+                        'text-nerve-success'
+                      }`} style={result.severityScore >= 7 ? { textShadow: '0 0 24px rgba(255,42,42,0.4)' } : undefined}>
+                        {result.severityScore}
+                      </span>
+                      <span className="text-sm font-mono text-nerve-muted">/10</span>
+                    </div>
+                  </div>
+                )}
+
                 {/* Tab content */}
                 {activeTab === 'timeline' && result.timeline?.length > 0 && (
                   <div>

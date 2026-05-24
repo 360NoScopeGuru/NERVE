@@ -4,7 +4,7 @@ export default function TimelineView({ entries }) {
   return (
     <div className="space-y-0">
       {entries.map((entry, i) => (
-        <div key={i} className="flex gap-3 group animate-fade-in" style={{ animationDelay: `${i * 30}ms` }}>
+        <div key={i} className="flex gap-3 group animate-fade-in" style={{ animationDelay: `${Math.round(i * (400 / entries.length))}ms` }}>
           {/* Timeline spine */}
           <div className="flex flex-col items-center flex-shrink-0 w-5">
             <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5 transition-colors ${

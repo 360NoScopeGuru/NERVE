@@ -31,11 +31,10 @@ export default function HypothesisCard({ hypothesis, index }) {
 
   return (
     <div
-      className={`rounded border ${cfg.border} bg-nerve-panel transition-all duration-200 animate-slide-up overflow-hidden`}
+      className={`rounded border ${cfg.border} bg-nerve-panel transition-all duration-200 overflow-hidden ${cfg.glow ? 'animate-glow-in' : 'animate-slide-up'}`}
       style={{
-        animationDelay: `${index * 80}ms`,
+        animationDelay: `${index * 150}ms`,
         borderLeft: cfg.glow ? '2px solid rgba(255,42,42,0.6)' : undefined,
-        boxShadow: cfg.glow ? 'inset 3px 0 12px rgba(255,42,42,0.08), 0 0 0 1px rgba(255,42,42,0.08)' : undefined,
       }}
     >
       <div

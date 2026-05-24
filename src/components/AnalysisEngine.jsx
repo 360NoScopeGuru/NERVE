@@ -7,7 +7,10 @@ const PRIMARY_MODEL   = 'nvidia/llama-3.3-nemotron-super-49b-v1'
 const FALLBACK_MODEL  = 'meta/llama-3.1-8b-instruct'
 const FALLBACKS = { A: SCENARIO_A_FALLBACK, B: SCENARIO_B_FALLBACK }
 
-const FORMATTER_PROMPT = `You are a JSON formatter. Convert the following SRE incident analysis into this exact JSON structure with no markdown, no extra text, only valid JSON:
+const FORMATTER_PROMPT = `You are a JSON formatter. Convert the following SRE incident analysis into this exact JSON structure with no markdown, no extra text, only valid JSON.
+
+CRITICAL: Include ALL timeline events from the input — do not truncate, skip, or summarize any events.
+
 {
   "summary": "string",
   "timeline": [{ "time": "string", "event": "string" }],
@@ -17,10 +20,17 @@ const FORMATTER_PROMPT = `You are a JSON formatter. Convert the following SRE in
     "explanation": "string",
     "evidence": ["string"]
   }],
-  "fixSteps": ["string"]
-}`
+  "fixSteps": ["string"],
+  "severityScore": 7,
+  "severityReason": "string — one sentence: blast radius, cascade speed, recoverability"
+}
 
-async function callModel(model, messages, timeoutMs) {
+Rules:
+- timeline: copy EVERY event from the input without omitting any
+- severityScore: integer 1–10 (1–3 minor, 4–6 moderate, 7–10 critical) based on blast radius, time to impact, and recoverability
+- severityReason: one sentence, e.g. "High blast radius across 4 services with 90s cascade to full outage requiring manual rollback."`
+
+async function callModel(model, messages, timeoutMs, maxTokens = 2048) {
   const apiKey = import.meta.env.VITE_NVIDIA_API_KEY
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
@@ -33,7 +43,7 @@ async function callModel(model, messages, timeoutMs) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({ model, max_tokens: 2048, messages }),
+      body: JSON.stringify({ model, max_tokens: maxTokens, messages }),
     })
     clearTimeout(timer)
 
@@ -98,11 +108,13 @@ function normalise(parsed, rawText) {
     })),
     hypotheses: (parsed.hypotheses || []).map(h => ({
       title: h.title || '',
-      strength: h.signal || h.strength || 'MED', // accept either key
+      strength: h.signal || h.strength || 'MED',
       explanation: h.explanation || '',
       evidence: Array.isArray(h.evidence) ? h.evidence : [],
     })),
     fixSteps: parsed.fixSteps || [],
+    severityScore: typeof parsed.severityScore === 'number' ? Math.min(10, Math.max(1, Math.round(parsed.severityScore))) : null,
+    severityReason: parsed.severityReason || '',
     raw: rawText,
   }
 }
@@ -164,7 +176,7 @@ export async function runAnalysis(logData, scenarioId, onStatus) {
       { role: 'system', content: FORMATTER_PROMPT },
       { role: 'user', content: rawText },
     ]
-    const jsonText = await callModel(FALLBACK_MODEL, formatterMessages, 20000)
+    const jsonText = await callModel(FALLBACK_MODEL, formatterMessages, 20000, 4096)
     const parsed = extractJSON(jsonText)
 
     if (!validateResult(parsed)) {

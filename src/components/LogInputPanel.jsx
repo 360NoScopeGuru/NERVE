@@ -12,14 +12,21 @@ export default function LogInputPanel({ value, onChange, onAnalyze, isLoading, v
     reader.readAsText(file)
   }
 
+  const handleClipboardPaste = async () => {
+    try {
+      const text = await navigator.clipboard.readText()
+      if (text) onChange(text)
+    } catch {
+      // Clipboard permission denied or unavailable
+    }
+  }
+
   const handleDrop = (e) => {
     e.preventDefault()
     setDragOver(false)
     const file = e.dataTransfer.files[0]
     if (file) handleFile(file)
   }
-
-  const lineCount = value.split('\n').filter(l => l.trim()).length
 
   return (
     <div className="flex flex-col gap-3 h-full">
@@ -48,12 +55,14 @@ export default function LogInputPanel({ value, onChange, onAnalyze, isLoading, v
             <span className="text-nerve-accent font-mono text-sm font-semibold">Drop file to load</span>
           </div>
         )}
-        {value && (
-          <div className="absolute bottom-2 right-3 text-[10px] font-mono text-nerve-muted">
-            {lineCount} lines
-          </div>
-        )}
       </div>
+
+      {/* Line / char counter */}
+      {value && (
+        <div className="text-[10px] font-mono text-nerve-muted text-right -mt-1">
+          {value.split('\n').filter(l => l.trim()).length} lines · {value.length.toLocaleString()} chars
+        </div>
+      )}
 
       {/* Validation errors */}
       {validationErrors.length > 0 && (
@@ -85,6 +94,15 @@ export default function LogInputPanel({ value, onChange, onAnalyze, isLoading, v
           className="hidden"
           onChange={(e) => handleFile(e.target.files[0])}
         />
+        <button
+          onClick={handleClipboardPaste}
+          className="flex items-center gap-2 px-3 py-1.5 rounded border border-nerve-border hover:border-nerve-accent/50 text-nerve-textDim hover:text-nerve-text text-xs font-mono transition-colors"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+          Quick Paste
+        </button>
         {value && (
           <button
             onClick={() => onChange('')}
