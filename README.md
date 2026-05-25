@@ -14,8 +14,9 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Prisma-336791?style=flat-square&logo=postgresql&logoColor=white&labelColor=0a0a1a)](https://www.prisma.io)
 [![Clerk](https://img.shields.io/badge/Auth-Clerk-6c47ff?style=flat-square&labelColor=0a0a1a)](https://clerk.com)
 [![Render](https://img.shields.io/badge/Deployed-Render-46e3b7?style=flat-square&logo=render&logoColor=white&labelColor=0a0a1a)](https://nerve-qltv.onrender.com)
+[![Pages](https://img.shields.io/badge/Landing-GitHub%20Pages-222?style=flat-square&logo=github&logoColor=white&labelColor=0a0a1a)](https://360noscopeguru.github.io/NERVE)
 
-[**Live Demo →**](https://nerve-qltv.onrender.com)
+[**Live Demo →**](https://nerve-qltv.onrender.com) &nbsp;·&nbsp; [**Landing Page →**](https://360noscopeguru.github.io/NERVE)
 
 </div>
 
