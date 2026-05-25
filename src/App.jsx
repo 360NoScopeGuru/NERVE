@@ -196,7 +196,7 @@ function Analyzer() {
   const [validationErrors, setValidationErrors] = useState([])
   const [activeTab, setActiveTab] = useState('timeline')
   const [analysisStatus, setAnalysisStatus] = useState('')
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 640)
   const [historyKey, setHistoryKey] = useState(0)
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640)
   const [mobileTab, setMobileTab] = useState('input')
@@ -290,6 +290,10 @@ function Analyzer() {
     setError(null)
     if (logData) setLogs(logData)
     setActiveScenario(scenarioId || null)
+    if (window.innerWidth < 640) {
+      setMobileTab('output')
+      setSidebarOpen(false)
+    }
   }
 
   const hasResult = result && !isLoading
@@ -340,7 +344,7 @@ function Analyzer() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setSidebarOpen(o => !o)}
-            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-nerve-border hover:border-nerve-accent/30 text-nerve-textDim hover:text-nerve-accent text-[10px] font-display font-semibold tracking-wider transition-all duration-200 hover:bg-nerve-accent/5"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-nerve-border hover:border-nerve-accent/30 text-nerve-textDim hover:text-nerve-accent text-[10px] font-display font-semibold tracking-wider transition-all duration-200 hover:bg-nerve-accent/5"
           >
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -406,13 +410,13 @@ function Analyzer() {
 
       {/* ── Body ───────────────────────────────────────────────────────────── */}
       <div className="flex-1 flex overflow-hidden relative z-10">
-        {!isMobile && (
-          <HistorySidebar
-            isOpen={sidebarOpen}
-            onLoadResult={handleLoadFromHistory}
-            refreshKey={historyKey}
-          />
-        )}
+        <HistorySidebar
+          isOpen={sidebarOpen}
+          onLoadResult={handleLoadFromHistory}
+          refreshKey={historyKey}
+          isMobile={isMobile}
+          onClose={() => setSidebarOpen(false)}
+        />
 
         {/* Left — Input */}
         <div

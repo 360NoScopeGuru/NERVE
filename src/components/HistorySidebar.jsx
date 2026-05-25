@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useAuth } from '@clerk/clerk-react'
 
 function timeAgo(iso) {
@@ -26,7 +27,7 @@ function SeverityChip({ score }) {
   )
 }
 
-export default function HistorySidebar({ isOpen, onToggle, onLoadResult, refreshKey }) {
+export default function HistorySidebar({ isOpen, onLoadResult, refreshKey, isMobile, onClose }) {
   const { getToken } = useAuth()
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(false)
@@ -76,6 +77,85 @@ export default function HistorySidebar({ isOpen, onToggle, onLoadResult, refresh
     } catch { /* silent */ }
   }
 
+  const content = (
+    <>
+      {/* Header */}
+      <div className="flex-shrink-0 px-3 py-2.5 flex items-center justify-between"
+        style={{ borderBottom: '1px solid #141428' }}>
+        <span className="text-[9px] font-display font-semibold tracking-[0.3em] text-nerve-mutedBright uppercase">
+          History
+        </span>
+        <div className="flex items-center gap-2">
+          {entries.length > 0 && (
+            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded"
+              style={{ background: 'rgba(30,30,64,0.8)', color: '#4a4a70', border: '1px solid #1e1e40' }}>
+              {entries.length}
+            </span>
+          )}
+          {loading && (
+            <div className="w-3 h-3 rounded-full border border-t-nerve-accent animate-spin" />
+          )}
+          {isMobile && (
+            <button
+              onClick={onClose}
+              aria-label="Close history"
+              className="ml-1 w-6 h-6 flex items-center justify-center rounded text-nerve-muted hover:text-nerve-text hover:bg-nerve-border/40 transition-colors text-lg leading-none"
+            >
+              ×
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Entries */}
+      <div className="flex-1 overflow-y-auto">
+        {entries.length === 0 && !loading && (
+          <div className="p-4 text-center mt-6">
+            <div className="text-[9px] font-mono text-nerve-muted">No analyses yet</div>
+          </div>
+        )}
+
+        {entries.map((entry, i) => (
+          <HistoryEntry
+            key={entry.id}
+            entry={entry}
+            index={i}
+            isLoading={loadingId === entry.id}
+            onLoad={() => handleLoad(entry.id)}
+            onDelete={(e) => handleDelete(e, entry.id)}
+          />
+        ))}
+      </div>
+    </>
+  )
+
+  // Mobile: slide-in overlay drawer (portaled to body to escape stacking contexts)
+  if (isMobile) {
+    if (!isOpen) return null
+    return createPortal(
+      <>
+        <div
+          className="fixed inset-0 z-[9000] animate-fade-in"
+          style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+          onClick={onClose}
+        />
+        <div
+          className="fixed inset-y-0 left-0 z-[9001] flex flex-col animate-slide-in-left"
+          style={{
+            width: 'min(85vw, 320px)',
+            background: '#06060f',
+            borderRight: '1px solid #141428',
+            boxShadow: '8px 0 32px rgba(0,0,0,0.6)',
+          }}
+        >
+          {content}
+        </div>
+      </>,
+      document.body
+    )
+  }
+
+  // Desktop: inline collapsible sidebar
   return (
     <div
       className="flex-shrink-0 flex flex-col overflow-hidden"
@@ -86,48 +166,7 @@ export default function HistorySidebar({ isOpen, onToggle, onLoadResult, refresh
         background: '#06060f',
       }}
     >
-      {isOpen && (
-        <>
-          {/* Header */}
-          <div className="flex-shrink-0 px-3 py-2.5 flex items-center justify-between"
-            style={{ borderBottom: '1px solid #141428' }}>
-            <span className="text-[9px] font-display font-semibold tracking-[0.3em] text-nerve-mutedBright uppercase">
-              History
-            </span>
-            <div className="flex items-center gap-2">
-              {entries.length > 0 && (
-                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded"
-                  style={{ background: 'rgba(30,30,64,0.8)', color: '#4a4a70', border: '1px solid #1e1e40' }}>
-                  {entries.length}
-                </span>
-              )}
-              {loading && (
-                <div className="w-3 h-3 rounded-full border border-t-nerve-accent animate-spin" />
-              )}
-            </div>
-          </div>
-
-          {/* Entries */}
-          <div className="flex-1 overflow-y-auto">
-            {entries.length === 0 && !loading && (
-              <div className="p-4 text-center mt-6">
-                <div className="text-[9px] font-mono text-nerve-muted">No analyses yet</div>
-              </div>
-            )}
-
-            {entries.map((entry, i) => (
-              <HistoryEntry
-                key={entry.id}
-                entry={entry}
-                index={i}
-                isLoading={loadingId === entry.id}
-                onLoad={() => handleLoad(entry.id)}
-                onDelete={(e) => handleDelete(e, entry.id)}
-              />
-            ))}
-          </div>
-        </>
-      )}
+      {isOpen && content}
     </div>
   )
 }

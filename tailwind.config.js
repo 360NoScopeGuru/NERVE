@@ -41,6 +41,7 @@ export default {
         'sweep':       'sweep 1.8s ease-in-out infinite',
         'fade-in':     'fadeIn 0.3s ease-in both',
         'slide-up':    'slideUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both',
+        'slide-in-left': 'slideInLeft 0.3s cubic-bezier(0.34, 1.2, 0.64, 1) both',
         'glow-in':     'glowIn 0.8s ease-out both',
         'pulse-slow':  'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'scan':        'scan 5s linear infinite',
@@ -86,6 +87,10 @@ export default {
         slideUp: {
           '0%':   { opacity: '0', transform: 'translateY(8px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        slideInLeft: {
+          '0%':   { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(0)' },
         },
         glowIn: {
           '0%':   { opacity: '0', transform: 'translateY(8px)', boxShadow: 'none' },
