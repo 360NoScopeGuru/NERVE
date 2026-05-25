@@ -280,7 +280,7 @@ section{position:relative}
 .cell .cn{font:500 9.5px/1 var(--mono);letter-spacing:.2em;color:var(--red);text-transform:uppercase;margin-bottom:auto}
 .cell h4{font:800 18px/1.15 var(--sans);margin:16px 0 8px;letter-spacing:-.01em}
 .cell p{font:300 12.5px/1.55 var(--sans);color:var(--dim)}
-.cell.wide{grid-column:span 3}.cell.norm{grid-column:span 2}.cell.tall{grid-column:span 2}
+.cell.wide{grid-column:span 4}.cell.norm{grid-column:span 2}.cell.tall{grid-column:span 2}
 .cell .num{position:absolute;top:18px;right:20px;font-family:var(--display);font-size:30px;color:var(--faint);transition:color .25s}
 .cell:hover .num{color:var(--red)}
 /* keyboard tile */
@@ -715,8 +715,8 @@ $$('[data-count]').forEach(el=>cntIO.observe(el));
 function arcTo(circleEl,numEl,r,score){
   const circ=2*Math.PI*r, track=circ*0.75, fill=track*(score/10);
   const setN=(v)=>{numEl.textContent=v;};
-  if(RM){circleEl.setAttribute('stroke-dasharray',`${fill} 999`);setN(score);return;}
-  requestAnimationFrame(()=>circleEl.setAttribute('stroke-dasharray',`${fill} 999`));
+  if(RM){circleEl.style.strokeDasharray=`${fill} 999`;setN(score);return;}
+  requestAnimationFrame(()=>{circleEl.style.strokeDasharray=`${fill} 999`;});
   let t0=performance.now();const step=(t)=>{const p=Math.min((t-t0)/1100,1);setN(Math.round(score*(1-Math.pow(1-p,3))));if(p<1)requestAnimationFrame(step)};requestAnimationFrame(step);
 }
 const outCard=$('.c-sev'); const outArcIO=new IntersectionObserver((es)=>{es.forEach(e=>{
@@ -877,7 +877,7 @@ $$('.keys kbd').forEach(kbd=>kbd.addEventListener('click',()=>hitKey(kbd.dataset
       await sleep(150);
       // severity arc + count
       const arc=$('#an-arc'), sev=$('#an-sev'), circ=2*Math.PI*24, fill=circ*0.75*0.9;
-      arc.setAttribute('stroke-dasharray',`${fill} 999`);
+      arc.style.strokeDasharray=`${fill} 999`;
       let s=0;const iv=setInterval(()=>{s++;sev.textContent=s;if(s>=9)clearInterval(iv)},70);
       // fix steps type-in
       for(const f of $$('#an-fix .fl')){f.classList.add('on');await sleep(360);}
@@ -889,7 +889,7 @@ $$('.keys kbd').forEach(kbd=>kbd.addEventListener('click',()=>hitKey(kbd.dataset
       dots.forEach(d=>d.classList.remove('on'));segs.forEach(s=>s.classList.remove('on'));
       $$('#stage-an .hyp').forEach(h=>h.classList.remove('on'));
       $$('#an-fix .fl').forEach(f=>f.classList.remove('on'));
-      arc.setAttribute('stroke-dasharray','0 999');sev.textContent='0';
+      arc.style.strokeDasharray='0 999';sev.textContent='0';
       await sleep(400);
     }
   }
