@@ -342,27 +342,29 @@ function Analyzer() {
         }}
       >
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setSidebarOpen(o => !o)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-nerve-border hover:border-nerve-accent/30 text-nerve-textDim hover:text-nerve-accent text-[10px] font-display font-semibold tracking-wider transition-all duration-200 hover:bg-nerve-accent/5"
-          >
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            HISTORY
-          </button>
+          <div className="flex flex-col gap-1.5 sm:flex-row sm:gap-3">
+            <button
+              onClick={() => setSidebarOpen(o => !o)}
+              className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded border border-nerve-border hover:border-nerve-accent/30 text-nerve-textDim hover:text-nerve-accent text-[10px] font-display font-semibold tracking-wider transition-all duration-200 hover:bg-nerve-accent/5"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              HISTORY
+            </button>
 
-          <button
-            onClick={handleNewAnalysis}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-nerve-border hover:border-nerve-success/40 text-nerve-textDim hover:text-nerve-success text-[10px] font-display font-semibold tracking-wider transition-all duration-200 hover:bg-nerve-success/5"
-          >
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            NEW
-          </button>
+            <button
+              onClick={handleNewAnalysis}
+              className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded border border-nerve-border hover:border-nerve-success/40 text-nerve-textDim hover:text-nerve-success text-[10px] font-display font-semibold tracking-wider transition-all duration-200 hover:bg-nerve-success/5"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              NEW
+            </button>
+          </div>
 
-          <div className="w-px h-5 bg-nerve-border" />
+          <div className="w-px h-5 bg-nerve-border hidden sm:block" />
           <NerveLogo size="sm" />
           <div className="w-px h-5 bg-nerve-border hidden sm:block" />
           <span className="text-[10px] font-mono text-nerve-muted tracking-widest hidden sm:block">
