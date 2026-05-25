@@ -17,8 +17,12 @@ model Analysis {
   summary       String
   severityScore Int?
   result        Json
-  fromCache     Boolean  @default(false)
-  createdAt     DateTime @default(now())
+  fromCache                Boolean  @default(false)
+  notes                    String?  @db.Text
+  isPublic                 Boolean  @default(false)
+  shareToken               String?  @unique
+  confirmedHypothesisIndex Int?
+  createdAt                DateTime @default(now())
 
   @@index([userId, createdAt(sort: Desc)])
 }

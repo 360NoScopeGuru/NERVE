@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '@clerk/clerk-react'
 
@@ -10,6 +10,13 @@ function timeAgo(iso) {
   const h = Math.floor(m / 60)
   if (h < 24) return `${h}h ago`
   return `${Math.floor(h / 24)}d ago`
+}
+
+function scoreToSevBucket(score) {
+  if (!score && score !== 0) return null
+  if (score >= 7) return 'HIGH'
+  if (score >= 4) return 'MED'
+  return 'LOW'
 }
 
 function SeverityChip({ score }) {
@@ -27,11 +34,20 @@ function SeverityChip({ score }) {
   )
 }
 
+const SEV_COLORS = {
+  HIGH: { text: '#ff2a2a', bg: 'rgba(255,42,42,0.12)', border: 'rgba(255,42,42,0.35)', activeBg: 'rgba(255,42,42,0.22)' },
+  MED:  { text: '#f59e0b', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.35)', activeBg: 'rgba(245,158,11,0.22)' },
+  LOW:  { text: '#00e5a0', bg: 'rgba(0,229,160,0.12)', border: 'rgba(0,229,160,0.35)', activeBg: 'rgba(0,229,160,0.22)' },
+}
+
 export default function HistorySidebar({ isOpen, onLoadResult, refreshKey, isMobile, onClose }) {
   const { getToken } = useAuth()
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(false)
   const [loadingId, setLoadingId] = useState(null)
+  const [query, setQuery] = useState('')
+  const [sevFilter, setSevFilter] = useState(new Set())
+  const searchRef = useRef(null)
 
   useEffect(() => {
     if (!isOpen) return
@@ -58,7 +74,7 @@ export default function HistorySidebar({ isOpen, onLoadResult, refreshKey, isMob
       })
       if (res.ok) {
         const data = await res.json()
-        onLoadResult(data.result, data.fromCache, data.logData, data.scenarioId, data.name)
+        onLoadResult(data.result, data.fromCache, data.logData, data.scenarioId, data.name, data.id, data.notes, data.confirmedHypothesisIndex)
       }
     } finally {
       setLoadingId(null)
@@ -77,6 +93,27 @@ export default function HistorySidebar({ isOpen, onLoadResult, refreshKey, isMob
     } catch { /* silent */ }
   }
 
+  const toggleSev = (bucket) => {
+    setSevFilter(prev => {
+      const next = new Set(prev)
+      next.has(bucket) ? next.delete(bucket) : next.add(bucket)
+      return next
+    })
+  }
+
+  const filtered = entries.filter(e => {
+    if (query) {
+      const q = query.toLowerCase()
+      const haystack = ((e.name || '') + ' ' + (e.summary || '')).toLowerCase()
+      if (!haystack.includes(q)) return false
+    }
+    if (sevFilter.size > 0) {
+      const bucket = scoreToSevBucket(e.severityScore)
+      if (!sevFilter.has(bucket)) return false
+    }
+    return true
+  })
+
   const content = (
     <>
       {/* Header */}
@@ -89,7 +126,7 @@ export default function HistorySidebar({ isOpen, onLoadResult, refreshKey, isMob
           {entries.length > 0 && (
             <span className="text-[9px] font-mono px-1.5 py-0.5 rounded"
               style={{ background: 'rgb(var(--c-panel-raised))', color: 'rgb(var(--c-muted))', border: '1px solid rgb(var(--c-border))' }}>
-              {entries.length}
+              {filtered.length}{filtered.length !== entries.length ? `/${entries.length}` : ''}
             </span>
           )}
           {loading && (
@@ -107,6 +144,45 @@ export default function HistorySidebar({ isOpen, onLoadResult, refreshKey, isMob
         </div>
       </div>
 
+      {/* Search + filter */}
+      {entries.length > 0 && (
+        <div className="flex-shrink-0 px-2 pt-2 pb-1.5 space-y-1.5" style={{ borderBottom: '1px solid rgb(var(--c-border))' }}>
+          <input
+            ref={searchRef}
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Search…"
+            className="w-full text-[11px] font-mono px-2 py-1 rounded outline-none placeholder:text-nerve-muted"
+            style={{
+              background: 'rgb(var(--c-panel-raised))',
+              border: '1px solid rgb(var(--c-border))',
+              color: 'rgb(var(--c-text))',
+            }}
+          />
+          <div className="flex gap-1">
+            {['HIGH', 'MED', 'LOW'].map(b => {
+              const c = SEV_COLORS[b]
+              const active = sevFilter.has(b)
+              return (
+                <button
+                  key={b}
+                  onClick={() => toggleSev(b)}
+                  className="flex-1 text-[8px] font-display font-bold tracking-wider py-0.5 rounded transition-all duration-150"
+                  style={{
+                    color: c.text,
+                    background: active ? c.activeBg : c.bg,
+                    border: `1px solid ${c.border}`,
+                    opacity: active ? 1 : 0.6,
+                  }}
+                >
+                  {b}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Entries */}
       <div className="flex-1 overflow-y-auto" style={{ background: 'rgb(var(--c-bg))' }}>
         {entries.length === 0 && !loading && (
@@ -115,7 +191,13 @@ export default function HistorySidebar({ isOpen, onLoadResult, refreshKey, isMob
           </div>
         )}
 
-        {entries.map((entry, i) => (
+        {entries.length > 0 && filtered.length === 0 && (
+          <div className="p-4 text-center mt-4">
+            <div className="text-[9px] font-mono text-nerve-muted">No matches</div>
+          </div>
+        )}
+
+        {filtered.map((entry, i) => (
           <HistoryEntry
             key={entry.id}
             entry={entry}
@@ -173,6 +255,7 @@ export default function HistorySidebar({ isOpen, onLoadResult, refreshKey, isMob
 
 function HistoryEntry({ entry, index, isLoading, onLoad, onDelete }) {
   const [hovered, setHovered] = useState(false)
+  const confirmed = entry.confirmedHypothesisIndex != null
 
   return (
     <button
@@ -208,7 +291,12 @@ function HistoryEntry({ entry, index, isLoading, onLoad, onDelete }) {
 
       <div className="px-3 py-2.5 pl-4">
         <div className="flex items-center justify-between gap-1 mb-1">
-          <SeverityChip score={entry.severityScore} />
+          <div className="flex items-center gap-1">
+            <SeverityChip score={entry.severityScore} />
+            {confirmed && (
+              <span className="text-[8px] font-mono flex-shrink-0" style={{ color: 'rgb(var(--c-success))' }} title="Root cause confirmed">✓</span>
+            )}
+          </div>
           <span className="text-[9px] font-mono text-nerve-muted flex-1 text-right">{timeAgo(entry.createdAt)}</span>
           <button
             onClick={onDelete}

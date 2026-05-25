@@ -29,7 +29,7 @@ export async function runAnalysis(logData, scenarioId, onStatus, token) {
       if (!line.startsWith('data: ')) continue
       const event = JSON.parse(line.slice(6))
       if (event.type === 'status') onStatus(event.text)
-      if (event.type === 'result') return { result: event.result, fromCache: event.fromCache }
+      if (event.type === 'result') return { result: event.result, fromCache: event.fromCache, id: event.id }
       if (event.type === 'error') throw new Error(event.message)
     }
   }

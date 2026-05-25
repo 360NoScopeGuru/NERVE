@@ -6,8 +6,11 @@ import TimelineView from './components/TimelineView'
 import HypothesisCard from './components/HypothesisCard'
 import FixSteps from './components/FixSteps'
 import HistorySidebar from './components/HistorySidebar'
+import HypothesisFeedback from './components/HypothesisFeedback'
+import ShareModal from './components/ShareModal'
 import { runAnalysis } from './components/AnalysisEngine'
 import { validateLogs } from './utils/logValidator'
+import { exportMarkdown } from './utils/exportMarkdown'
 
 export default function App() {
   return (
@@ -191,6 +194,10 @@ function Analyzer() {
   const [activeScenario, setActiveScenario] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState(null)
+  const [resultName, setResultName] = useState(null)
+  const [analysisId, setAnalysisId] = useState(null)
+  const [notes, setNotes] = useState('')
+  const [confirmedHypothesisIndex, setConfirmedHypothesisIndex] = useState(null)
   const [error, setError] = useState(null)
   const [fromCache, setFromCache] = useState(false)
   const [validationErrors, setValidationErrors] = useState([])
@@ -200,6 +207,12 @@ function Analyzer() {
   const [historyKey, setHistoryKey] = useState(0)
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640)
   const [mobileTab, setMobileTab] = useState('input')
+  const [showShareModal, setShowShareModal] = useState(false)
+  const [showExportMenu, setShowExportMenu] = useState(false)
+  const [notesOpen, setNotesOpen] = useState(false)
+  const [isSharedView, setIsSharedView] = useState(false)
+  const notesSaveTimer = useRef(null)
+  const [notesSaved, setNotesSaved] = useState(false)
 
   // ── Effects ───────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -231,6 +244,45 @@ function Analyzer() {
     document.title = `NERVE — ${name.length > 60 ? name.slice(0, 57).trimEnd() + '…' : name}`
   }, [result])
 
+  // ── Shared view — load from ?share=TOKEN on mount ─────────────────────────
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get('share')
+    if (!token) return
+    setIsSharedView(true)
+    fetch(`/api/share/${token}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) return
+        setResult(data.result)
+        setResultName(data.name)
+        setAnalysisId(data.id)
+        setNotes(data.notes || '')
+        setConfirmedHypothesisIndex(data.confirmedHypothesisIndex ?? null)
+        setActiveTab('timeline')
+        if (data.name) document.title = `NERVE — ${data.name}`
+      })
+  }, [])
+
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.target.matches('textarea, input, [contenteditable]')) return
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      switch (e.key) {
+        case 'h': case 'H': setSidebarOpen(o => !o); break
+        case 'n': case 'N': handleNewAnalysis(); break
+        case '1': if (result) setActiveTab('timeline'); break
+        case '2': if (result) setActiveTab('hypotheses'); break
+        case '3': if (result) setActiveTab('fix'); break
+        case 'r': case 'R':
+          if (logs && !isLoading && !result) handleAnalyze()
+          break
+      }
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [logs, isLoading, result])
+
   const handleMouseMove = useCallback((e) => {
     if (rootRef.current) {
       rootRef.current.style.setProperty('--mx', e.clientX / window.innerWidth)
@@ -242,11 +294,17 @@ function Analyzer() {
   const handleNewAnalysis = () => {
     setLogs('')
     setResult(null)
+    setResultName(null)
+    setAnalysisId(null)
+    setNotes('')
+    setConfirmedHypothesisIndex(null)
     setError(null)
     setActiveScenario(null)
     setValidationErrors([])
     setFromCache(false)
     setAnalysisStatus('')
+    setNotesOpen(false)
+    setIsSharedView(false)
   }
 
   const handleLightModeToggle = () => {
@@ -278,9 +336,14 @@ function Analyzer() {
 
     try {
       const token = await getToken()
-      const { result: parsed, fromCache: cached } = await runAnalysis(logs, activeScenario, setAnalysisStatus, token)
+      const { result: parsed, fromCache: cached, id: savedId } = await runAnalysis(logs, activeScenario, setAnalysisStatus, token)
       setResult(parsed)
       setFromCache(cached)
+      setAnalysisId(savedId || null)
+      setConfirmedHypothesisIndex(null)
+      setNotes('')
+      const name = parsed.hypotheses?.[0]?.title || parsed.summary?.split(' ').slice(0, 7).join(' ') || 'Analysis'
+      setResultName(name)
       setActiveTab('timeline')
       setHistoryKey(k => k + 1)
       if (window.innerWidth < 640) setMobileTab('output')
@@ -292,14 +355,20 @@ function Analyzer() {
     }
   }
 
-  const handleLoadFromHistory = (historicResult, cached, logData, scenarioId, name) => {
+  const handleLoadFromHistory = (historicResult, cached, logData, scenarioId, name, id, histNotes, confirmedIdx) => {
     if (name) document.title = `NERVE — ${name.length > 60 ? name.slice(0, 57).trimEnd() + '…' : name}`
     setResult(historicResult)
+    setResultName(name || null)
     setFromCache(cached)
+    setAnalysisId(id || null)
+    setNotes(histNotes || '')
+    setConfirmedHypothesisIndex(confirmedIdx ?? null)
     setActiveTab('timeline')
     setError(null)
     if (logData) setLogs(logData)
     setActiveScenario(scenarioId || null)
+    setNotesOpen(false)
+    setIsSharedView(false)
     if (window.innerWidth < 640) {
       setMobileTab('output')
       setSidebarOpen(false)
@@ -317,6 +386,11 @@ function Analyzer() {
     >
       {/* Intro overlay */}
       {introPhase !== 'done' && <IntroOverlay phase={introPhase} />}
+
+      {/* Share modal */}
+      {showShareModal && analysisId && (
+        <ShareModal analysisId={analysisId} onClose={() => setShowShareModal(false)} />
+      )}
 
       {/* Light mode warning */}
       {showLightWarning && (
@@ -432,7 +506,7 @@ function Analyzer() {
 
         {/* Left — Input */}
         <div
-          className={`flex-col overflow-hidden ${isMobile ? (mobileTab === 'input' ? 'flex flex-1' : 'hidden') : 'flex flex-shrink-0'}`}
+          className={`flex-col overflow-hidden ${isSharedView ? 'hidden' : ''} ${isMobile ? (mobileTab === 'input' ? 'flex flex-1' : 'hidden') : 'flex flex-shrink-0'}`}
           style={isMobile ? undefined : {
             width: sidebarOpen ? '40%' : '46%',
             transition: 'width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
@@ -455,33 +529,97 @@ function Analyzer() {
 
         {/* Right — Output */}
         <div className={`flex-col overflow-hidden ${isMobile ? (mobileTab === 'output' ? 'flex flex-1' : 'hidden') : 'flex flex-1'}`}>
-          <div className="flex-shrink-0 px-5 py-2.5 flex items-center justify-between"
+          <div className="flex-shrink-0 px-5 py-2.5 flex items-center justify-between gap-2"
             style={{ borderBottom: '1px solid rgb(var(--c-border))' }}>
-            <span className="text-[10px] font-display font-semibold tracking-[0.25em] text-nerve-mutedBright">
-              ANALYSIS OUTPUT
-            </span>
-            {hasResult && (
-              <div className="flex gap-1">
-                {[
-                  { id: 'timeline',   label: 'TIMELINE',   count: result.timeline?.length },
-                  { id: 'hypotheses', label: 'HYPOTHESES', count: result.hypotheses?.length },
-                  { id: 'fix',        label: 'FIX STEPS',  count: result.fixSteps?.length },
-                ].map(({ id, label, count }) => (
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-display font-semibold tracking-[0.25em] text-nerve-mutedBright">
+                ANALYSIS OUTPUT
+              </span>
+              {isSharedView && (
+                <span className="text-[8px] font-display font-bold px-1.5 py-0.5 rounded tracking-wider"
+                  style={{ color: 'rgb(var(--c-accent))', background: 'rgb(var(--c-accent) / 0.1)', border: '1px solid rgb(var(--c-accent) / 0.25)' }}>
+                  SHARED VIEW
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              {hasResult && !isSharedView && analysisId && (
+                <>
+                  {/* Notes toggle */}
                   <button
-                    key={id}
-                    onClick={() => setActiveTab(id)}
-                    className={`px-3 py-1 text-[10px] font-display font-semibold tracking-wider rounded transition-all duration-200 ${
-                      activeTab === id
-                        ? 'bg-nerve-accent/15 text-nerve-accent border border-nerve-accent/30'
-                        : 'text-nerve-muted hover:text-nerve-textDim border border-transparent hover:border-nerve-border'
+                    onClick={() => setNotesOpen(o => !o)}
+                    title="Notes"
+                    className={`px-2 py-1 text-[10px] font-display font-semibold tracking-wider rounded transition-all duration-200 ${
+                      notesOpen ? 'bg-nerve-warn/15 text-nerve-warn border border-nerve-warn/30' : 'text-nerve-muted hover:text-nerve-textDim border border-transparent hover:border-nerve-border'
                     }`}
                   >
-                    {label}
-                    {count > 0 && <span className="ml-1.5 opacity-60 font-mono text-[9px]">{count}</span>}
+                    NOTES
                   </button>
-                ))}
-              </div>
-            )}
+                  {/* Share */}
+                  <button
+                    onClick={() => setShowShareModal(true)}
+                    title="Share"
+                    className="px-2 py-1 text-[10px] font-display font-semibold tracking-wider rounded transition-all duration-200 text-nerve-muted hover:text-nerve-accent border border-transparent hover:border-nerve-border"
+                  >
+                    SHARE
+                  </button>
+                </>
+              )}
+              {hasResult && (
+                <>
+                  {/* Export */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowExportMenu(o => !o)}
+                      className="px-2 py-1 text-[10px] font-display font-semibold tracking-wider rounded transition-all duration-200 text-nerve-muted hover:text-nerve-success border border-transparent hover:border-nerve-border"
+                    >
+                      EXPORT
+                    </button>
+                    {showExportMenu && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)} />
+                        <div className="absolute right-0 top-full mt-1 z-50 rounded-lg overflow-hidden animate-spring-in"
+                          style={{ background: 'rgb(var(--c-panel-raised))', border: '1px solid rgb(var(--c-border-bright))', boxShadow: '0 8px 32px rgba(0,0,0,0.5)', minWidth: 140 }}>
+                          <button
+                            onClick={() => { exportMarkdown(result, resultName); setShowExportMenu(false) }}
+                            className="w-full text-left px-3 py-2 text-[10px] font-mono hover:bg-nerve-accent/10 text-nerve-textDim hover:text-nerve-accent transition-colors"
+                          >
+                            Download .md
+                          </button>
+                          <button
+                            onClick={() => { window.print(); setShowExportMenu(false) }}
+                            className="w-full text-left px-3 py-2 text-[10px] font-mono hover:bg-nerve-accent/10 text-nerve-textDim hover:text-nerve-accent transition-colors"
+                          >
+                            Print / Save PDF
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  {/* Tab switcher */}
+                  <div className="flex gap-1">
+                    {[
+                      { id: 'timeline',   label: 'TIMELINE',   count: result.timeline?.length },
+                      { id: 'hypotheses', label: 'HYPOTHESES', count: result.hypotheses?.length },
+                      { id: 'fix',        label: 'FIX STEPS',  count: result.fixSteps?.length },
+                    ].map(({ id, label, count }) => (
+                      <button
+                        key={id}
+                        onClick={() => setActiveTab(id)}
+                        className={`px-3 py-1 text-[10px] font-display font-semibold tracking-wider rounded transition-all duration-200 ${
+                          activeTab === id
+                            ? 'bg-nerve-accent/15 text-nerve-accent border border-nerve-accent/30'
+                            : 'text-nerve-muted hover:text-nerve-textDim border border-transparent hover:border-nerve-border'
+                        }`}
+                      >
+                        {label}
+                        {count > 0 && <span className="ml-1.5 opacity-60 font-mono text-[9px]">{count}</span>}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto">
@@ -532,7 +670,17 @@ function Analyzer() {
                 {activeTab === 'hypotheses' && result.hypotheses?.length > 0 && (
                   <div className="space-y-3 animate-spring-in">
                     <SectionHeader title="ROOT CAUSE HYPOTHESES" count={result.hypotheses.length} unit="ranked" />
-                    {result.hypotheses.map((h, i) => <HypothesisCard key={i} hypothesis={h} index={i} />)}
+                    {result.hypotheses.map((h, i) => (
+                      <HypothesisCard key={i} hypothesis={h} index={i} confirmed={i === confirmedHypothesisIndex} />
+                    ))}
+                    {!isSharedView && (
+                      <HypothesisFeedback
+                        hypotheses={result.hypotheses}
+                        analysisId={analysisId}
+                        confirmedIndex={confirmedHypothesisIndex}
+                        onConfirm={(idx) => setConfirmedHypothesisIndex(idx)}
+                      />
+                    )}
                   </div>
                 )}
                 {activeTab === 'fix' && result.fixSteps?.length > 0 && (
@@ -540,6 +688,18 @@ function Analyzer() {
                     <SectionHeader title="REMEDIATION STEPS" subtitle="Calibrated to Hypothesis #1" count={result.fixSteps.length} unit="steps" />
                     <FixSteps steps={result.fixSteps} />
                   </div>
+                )}
+
+                {notesOpen && analysisId && (
+                  <NotesPanel
+                    analysisId={analysisId}
+                    notes={notes}
+                    onNotesChange={setNotes}
+                    getToken={getToken}
+                    saved={notesSaved}
+                    onSavedChange={setNotesSaved}
+                    saveTimer={notesSaveTimer}
+                  />
                 )}
 
                 <details className="group">
@@ -669,6 +829,49 @@ function SectionHeader({ title, subtitle, count, unit }) {
   )
 }
 
+function NotesPanel({ analysisId, notes, onNotesChange, getToken, saved, onSavedChange, saveTimer }) {
+  const handleChange = (e) => {
+    const val = e.target.value
+    onNotesChange(val)
+    onSavedChange(false)
+    clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(async () => {
+      try {
+        const token = await getToken()
+        await fetch(`/api/history/${analysisId}/notes`, {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notes: val }),
+        })
+        onSavedChange(true)
+        setTimeout(() => onSavedChange(false), 2000)
+      } catch { /* silent */ }
+    }, 500)
+  }
+
+  return (
+    <div className="rounded-lg p-3 animate-spring-in" style={{ background: 'rgb(var(--c-panel))', border: '1px solid rgb(var(--c-border))' }}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[9px] font-display font-semibold tracking-[0.2em] text-nerve-mutedBright">NOTES</span>
+        {saved && <span className="text-[9px] font-mono" style={{ color: 'rgb(var(--c-success))' }}>Saved</span>}
+      </div>
+      <textarea
+        value={notes}
+        onChange={handleChange}
+        placeholder="Post-incident notes, follow-up actions, observations…"
+        rows={3}
+        className="w-full text-[11px] font-mono resize-y outline-none rounded px-2 py-1.5 placeholder:text-nerve-muted"
+        style={{
+          background: 'rgb(var(--c-bg))',
+          border: '1px solid rgb(var(--c-border))',
+          color: 'rgb(var(--c-text))',
+          minHeight: 60,
+        }}
+      />
+    </div>
+  )
+}
+
 function EmptyState() {
   return (
     <div className="h-full flex flex-col items-center justify-center gap-5 p-8 text-center select-none">
@@ -682,6 +885,17 @@ function EmptyState() {
       <div>
         <p className="text-sm font-display font-semibold tracking-widest text-nerve-textDim">AWAITING INPUT</p>
         <p className="text-[11px] font-mono text-nerve-muted mt-1.5">Load a scenario or paste log data to begin</p>
+      </div>
+      <div className="flex flex-wrap justify-center gap-1.5 max-w-xs">
+        {[['H', 'history'], ['N', 'new'], ['R', 'run'], ['1-3', 'tabs']].map(([key, label]) => (
+          <span key={key} className="flex items-center gap-1 text-[9px] font-mono text-nerve-muted">
+            <kbd className="px-1.5 py-0.5 rounded text-[9px] font-mono"
+              style={{ background: 'rgb(var(--c-panel-raised))', border: '1px solid rgb(var(--c-border-bright))', color: 'rgb(var(--c-muted-bright))' }}>
+              {key}
+            </kbd>
+            {label}
+          </span>
+        ))}
       </div>
     </div>
   )

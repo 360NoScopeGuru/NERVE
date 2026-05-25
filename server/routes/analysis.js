@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { requireAuth } from '@clerk/express'
 import { PrismaClient } from '@prisma/client'
+import { randomBytes } from 'crypto'
 import { analyzeLog } from '../lib/analyzeLog.js'
 
 const router = Router()
@@ -20,7 +21,7 @@ function deriveName(result) {
   return out || 'Untitled'
 }
 
-// POST /api/analyze  — SSE stream: status events then a final result event
+// POST /api/analyze  — SSE stream
 router.post('/analyze', requireAuth(), async (req, res) => {
   const { userId } = req.auth ?? {}
   const { logData, scenarioId } = req.body
@@ -41,9 +42,9 @@ router.post('/analyze', requireAuth(), async (req, res) => {
       send({ type: 'status', text })
     })
 
-    // Persist to history
+    let savedId = null
     try {
-      await prisma.analysis.create({
+      const saved = await prisma.analysis.create({
         data: {
           userId,
           scenarioId: scenarioId || null,
@@ -56,11 +57,12 @@ router.post('/analyze', requireAuth(), async (req, res) => {
           fromCache,
         },
       })
+      savedId = saved.id
     } catch (dbErr) {
       console.error('[NERVE] Failed to save history:', dbErr.message)
     }
 
-    send({ type: 'result', result, fromCache })
+    send({ type: 'result', result, fromCache, id: savedId })
   } catch (err) {
     console.error('[NERVE] Analysis error:', err.message)
     send({ type: 'error', message: err.message })
@@ -69,7 +71,7 @@ router.post('/analyze', requireAuth(), async (req, res) => {
   }
 })
 
-// GET /api/history  — list of past analyses for the current user
+// GET /api/history
 router.get('/history', requireAuth(), async (req, res) => {
   const { userId } = req.auth ?? {}
   try {
@@ -85,6 +87,7 @@ router.get('/history', requireAuth(), async (req, res) => {
         summary: true,
         severityScore: true,
         fromCache: true,
+        confirmedHypothesisIndex: true,
         createdAt: true,
       },
     })
@@ -95,7 +98,7 @@ router.get('/history', requireAuth(), async (req, res) => {
   }
 })
 
-// GET /api/history/:id  — full result for a specific analysis
+// GET /api/history/:id
 router.get('/history/:id', requireAuth(), async (req, res) => {
   const { userId } = req.auth ?? {}
   try {
@@ -117,6 +120,69 @@ router.delete('/history/:id', requireAuth(), async (req, res) => {
     res.json({ ok: true })
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete entry' })
+  }
+})
+
+// PATCH /api/history/:id/notes
+router.patch('/history/:id/notes', requireAuth(), async (req, res) => {
+  const { userId } = req.auth ?? {}
+  const { notes } = req.body
+  if (typeof notes !== 'string') return res.status(400).json({ error: 'notes must be a string' })
+  try {
+    await prisma.analysis.updateMany({
+      where: { id: req.params.id, userId },
+      data: { notes },
+    })
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save notes' })
+  }
+})
+
+// PATCH /api/history/:id/confirm
+router.patch('/history/:id/confirm', requireAuth(), async (req, res) => {
+  const { userId } = req.auth ?? {}
+  const { index } = req.body
+  if (!Number.isInteger(index) || index < 0) return res.status(400).json({ error: 'invalid index' })
+  try {
+    await prisma.analysis.updateMany({
+      where: { id: req.params.id, userId },
+      data: { confirmedHypothesisIndex: index },
+    })
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to confirm hypothesis' })
+  }
+})
+
+// POST /api/history/:id/share
+router.post('/history/:id/share', requireAuth(), async (req, res) => {
+  const { userId } = req.auth ?? {}
+  try {
+    const entry = await prisma.analysis.findFirst({ where: { id: req.params.id, userId } })
+    if (!entry) return res.status(404).json({ error: 'Not found' })
+    const shareToken = entry.shareToken || randomBytes(9).toString('base64url')
+    await prisma.analysis.updateMany({
+      where: { id: req.params.id, userId },
+      data: { isPublic: true, shareToken },
+    })
+    res.json({ shareToken })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to enable sharing' })
+  }
+})
+
+// DELETE /api/history/:id/share
+router.delete('/history/:id/share', requireAuth(), async (req, res) => {
+  const { userId } = req.auth ?? {}
+  try {
+    await prisma.analysis.updateMany({
+      where: { id: req.params.id, userId },
+      data: { isPublic: false, shareToken: null },
+    })
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to disable sharing' })
   }
 })
 

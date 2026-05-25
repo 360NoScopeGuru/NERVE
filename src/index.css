@@ -148,3 +148,12 @@
     animation: shimmer 3s linear infinite;
   }
 }
+
+/* ── Print / PDF export ────────────────────────────────────────────────────── */
+@media print {
+  header, .history-sidebar, .log-input-panel-wrap, .mobile-tab-bar,
+  .scenario-loader-wrap, .intro-overlay { display: none !important; }
+  body { background: white !important; color: #111 !important; }
+  body::before, body::after { display: none !important; }
+  .result-panel-wrap { width: 100% !important; }
+}

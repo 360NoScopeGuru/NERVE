@@ -4,7 +4,10 @@ import cors from 'cors'
 import { clerkMiddleware } from '@clerk/express'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
+import { PrismaClient } from '@prisma/client'
 import analysisRouter from './routes/analysis.js'
+
+const prisma = new PrismaClient()
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const app = express()
@@ -17,6 +20,29 @@ app.use(cors({
     : 'http://localhost:5173',
   credentials: true,
 }))
+
+// Public share endpoint — no auth required, mounted before Clerk middleware
+app.get('/api/share/:token', async (req, res) => {
+  try {
+    const entry = await prisma.analysis.findFirst({
+      where: { shareToken: req.params.token, isPublic: true },
+      select: {
+        id: true,
+        name: true,
+        summary: true,
+        result: true,
+        severityScore: true,
+        notes: true,
+        confirmedHypothesisIndex: true,
+        createdAt: true,
+      },
+    })
+    if (!entry) return res.status(404).json({ error: 'Not found or sharing disabled' })
+    res.json(entry)
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch shared analysis' })
+  }
+})
 
 // Clerk only needed on API routes — keeps static serving unaffected
 // Pass VITE_CLERK_PUBLISHABLE_KEY explicitly; @clerk/express looks for CLERK_PUBLISHABLE_KEY by default

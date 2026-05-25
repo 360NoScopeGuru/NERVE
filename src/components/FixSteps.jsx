@@ -18,8 +18,22 @@ export default function FixSteps({ steps }) {
   )
 }
 
+function extractCommand(text) {
+  const match = text.match(/`([^`]+)`/)
+  return match ? match[1] : text
+}
+
 function FixStep({ step, index, total }) {
   const [hovered, setHovered] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = (e) => {
+    e.stopPropagation()
+    navigator.clipboard.writeText(extractCommand(step)).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
 
   return (
     <li
@@ -47,13 +61,29 @@ function FixStep({ step, index, total }) {
 
       {/* Step content */}
       <div
-        className="flex-1 min-w-0 px-3 py-2 rounded-lg transition-all duration-200"
+        className="flex-1 min-w-0 px-3 py-2 rounded-lg transition-all duration-200 flex items-start justify-between gap-2"
         style={{
           background: hovered ? 'rgb(var(--c-panel-raised))' : 'transparent',
           border: hovered ? '1px solid rgb(var(--c-border-bright))' : '1px solid transparent',
         }}
       >
         <StepContent text={step} />
+        <button
+          onClick={handleCopy}
+          title="Copy command"
+          className="flex-shrink-0 mt-0.5 transition-all duration-150"
+          style={{ opacity: hovered || copied ? 1 : 0 }}
+        >
+          {copied ? (
+            <svg className="w-3.5 h-3.5" fill="none" stroke="rgb(var(--c-success))" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+            </svg>
+          ) : (
+            <svg className="w-3.5 h-3.5" fill="none" stroke="rgb(var(--c-muted-bright))" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          )}
+        </button>
       </div>
     </li>
   )

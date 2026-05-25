@@ -40,7 +40,7 @@ function SignalBars({ strength }) {
   )
 }
 
-export default function HypothesisCard({ hypothesis, index }) {
+export default function HypothesisCard({ hypothesis, index, confirmed }) {
   const [expanded, setExpanded] = useState(false)
   const [hovered, setHovered] = useState(false)
   const cfg = STRENGTH_CONFIG[hypothesis.strength] || STRENGTH_CONFIG.MED
@@ -50,7 +50,7 @@ export default function HypothesisCard({ hypothesis, index }) {
       className="rounded-lg overflow-hidden animate-spring-in"
       style={{
         animationDelay: `${index * 120}ms`,
-        border: cfg.border,
+        border: confirmed ? '1px solid rgb(var(--c-success) / 0.4)' : cfg.border,
         background: 'rgb(var(--c-panel))',
         boxShadow: hovered
           ? cfg.glow
@@ -84,8 +84,14 @@ export default function HypothesisCard({ hypothesis, index }) {
 
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2 mb-1.5">
-                <h4 className="text-sm font-mono font-semibold text-nerve-text leading-tight">
+                <h4 className="text-sm font-mono font-semibold text-nerve-text leading-tight flex items-center gap-2">
                   {hypothesis.title}
+                  {confirmed && (
+                    <span className="text-[9px] font-display font-bold px-1.5 py-0.5 rounded tracking-wider flex-shrink-0"
+                      style={{ color: 'rgb(var(--c-success))', background: 'rgb(var(--c-success) / 0.1)', border: '1px solid rgb(var(--c-success) / 0.3)' }}>
+                      ✓ CONFIRMED
+                    </span>
+                  )}
                 </h4>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <SignalBars strength={hypothesis.strength} />
