@@ -4,749 +4,438 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NERVE — Incident Root Cause Analyzer</title>
-  <meta name="description" content="AI-powered incident root cause analysis for SRE teams. Three-model AI pipeline delivers timeline, ranked hypotheses, and fix steps in under 60 seconds.">
-  <meta property="og:title" content="NERVE — Root Cause Analysis in 47 Seconds">
-  <meta property="og:description" content="AI-powered incident analysis for SRE teams. Nemotron 49B primary · Llama 8B fallback · Structured output every time.">
+  <meta name="description" content="AI-powered incident root cause analysis for SRE teams. A three-model pipeline turns raw logs into a timeline, ranked hypotheses, a severity score, and fix steps — in seconds.">
+  <meta property="og:title" content="NERVE — Root Cause, Found.">
+  <meta property="og:description" content="Paste the logs. Get the timeline, the ranked hypotheses, the severity, and the fix. Nemotron 49B → Llama 8B → structured output.">
   <meta property="og:url" content="https://360noscopeguru.github.io/NERVE">
   <meta property="og:type" content="website">
   <link rel="canonical" href="https://360noscopeguru.github.io/NERVE">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2304040e'/%3E%3Crect x='4' y='4' width='24' height='24' rx='3.5' fill='%23ff2a2a' opacity='.65'/%3E%3Crect x='9' y='9' width='14' height='14' rx='2' fill='%2304040e'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-/* ── Reset & base ──────────────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
-body {
-  background: #080810;
-  color: #e8e8f0;
-  font-family: 'DM Sans', sans-serif;
-  -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
-  cursor: none;
+/* ══════════════════════════════════════════════════════════════════════════
+   TOKENS
+   ══════════════════════════════════════════════════════════════════════════ */
+:root{
+  --bg:#07070c; --bg2:#0c0c14; --ink:#f4f4f8; --dim:rgba(244,244,248,.52);
+  --faint:rgba(244,244,248,.10); --line:rgba(244,244,248,.14);
+  --red:#ff2a2a; --cyan:#00d4ff; --green:#00e5a0; --amber:#f59e0b;
+  --mono:'JetBrains Mono',monospace; --sans:'Inter',sans-serif; --display:'Anton',sans-serif;
 }
-a { color: inherit; text-decoration: none; }
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #2a2a48; border-radius: 2px; }
-::selection { background: rgba(255,59,59,0.25); color: #fff; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg); color:var(--ink); font-family:var(--sans);
+  -webkit-font-smoothing:antialiased; overflow-x:hidden; cursor:none;
+  line-height:1.5;
+}
+a{color:inherit;text-decoration:none}
+img,svg,canvas{display:block}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:#0a0a12}
+::-webkit-scrollbar-thumb{background:var(--red)}
+::selection{background:rgba(255,42,42,.3);color:#fff}
 
-/* ── Grain overlay ─────────────────────────────────────────────────── */
-#grain {
-  position: fixed; inset: 0; z-index: 9990; pointer-events: none;
-  opacity: 0.028;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size: 180px;
-}
+/* ══ overlays ══ */
+#grain{position:fixed;inset:0;z-index:9990;pointer-events:none;opacity:.03;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:170px}
+#cursor{position:fixed;top:0;left:0;width:9px;height:9px;background:var(--red);
+  border-radius:50%;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);
+  transition:transform .12s ease,opacity .2s,width .15s,height .15s;
+  box-shadow:0 0 14px rgba(255,42,42,.85),0 0 30px rgba(255,42,42,.3);will-change:transform}
+#cursor.big{width:46px;height:46px;background:rgba(255,42,42,.12);
+  box-shadow:0 0 0 1px rgba(255,42,42,.5)}
 
-/* ── Custom cursor ─────────────────────────────────────────────────── */
-#cursor {
-  position: fixed; top: 0; left: 0;
-  width: 8px; height: 8px;
-  background: #ff3b3b; border-radius: 50%;
-  pointer-events: none; z-index: 9999;
-  transform: translate(-50%, -50%);
-  transition: transform 0.1s ease, opacity 0.2s;
-  box-shadow: 0 0 12px rgba(255,59,59,0.8), 0 0 24px rgba(255,59,59,0.3);
-  will-change: transform;
-}
+/* ══════════════════════════════════════════════════════════════════════════
+   NAV + STATUS BAR
+   ══════════════════════════════════════════════════════════════════════════ */
+#statusbar{position:fixed;top:0;left:0;right:0;height:26px;z-index:600;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 18px;font:500 9.5px/1 var(--mono);letter-spacing:.18em;
+  color:var(--dim);background:#05050a;border-bottom:1px solid var(--line);text-transform:uppercase}
+#statusbar .sb-r{display:flex;gap:18px}
+#statusbar .live{color:var(--green)}
+.blip{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);
+  margin-right:6px;box-shadow:0 0 8px var(--green);animation:blip 1.6s ease-in-out infinite}
+@keyframes blip{0%,100%{opacity:1}50%{opacity:.25}}
+@media(max-width:680px){#statusbar .sb-mid{display:none}}
 
-/* ── Nav ───────────────────────────────────────────────────────────── */
-nav {
-  position: fixed; top: 0; left: 0; right: 0; height: 64px;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 48px; z-index: 500;
-  transition: background 0.35s ease, border-color 0.35s ease,
-              backdrop-filter 0.35s ease;
-  border-bottom: 1px solid transparent;
-}
-nav.solid {
-  background: rgba(8,8,16,0.92);
-  border-bottom-color: rgba(255,255,255,0.06);
-  backdrop-filter: blur(14px);
-}
-.nav-logo {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 26px; letter-spacing: 0.22em; color: #fff;
-}
-.nav-logo em { color: #ff3b3b; font-style: normal; }
-.btn-nav {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 9px 22px;
-  font: 600 11px/1 'DM Sans', sans-serif;
-  letter-spacing: 0.1em; text-transform: uppercase;
-  background: #ff3b3b; color: #fff; border-radius: 5px;
-  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
-  box-shadow: 0 0 24px rgba(255,59,59,0.25);
-}
-.btn-nav:hover {
-  background: #ff5252; transform: translateY(-1px);
-  box-shadow: 0 0 36px rgba(255,59,59,0.4);
-}
-@media (max-width: 600px) { nav { padding: 0 24px; } }
+nav{position:fixed;top:26px;left:0;right:0;height:58px;z-index:550;
+  display:flex;align-items:center;justify-content:space-between;padding:0 40px;
+  transition:background .35s,border-color .35s,backdrop-filter .35s;
+  border-bottom:1px solid transparent}
+nav.solid{background:rgba(7,7,12,.82);border-bottom-color:var(--line);backdrop-filter:blur(16px)}
+.brand{font-family:var(--display);font-size:30px;letter-spacing:.18em;color:#fff;line-height:1}
+.brand em{color:var(--red);font-style:normal}
+.brand .dot{display:inline-block;width:8px;height:8px;background:var(--red);border-radius:50%;
+  margin-left:7px;vertical-align:middle;box-shadow:0 0 10px var(--red);animation:blip 1.6s ease-in-out infinite}
+.navlinks{display:flex;align-items:center;gap:30px}
+.navlinks a.txt{font:600 11px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);transition:color .2s}
+.navlinks a.txt:hover{color:var(--ink)}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 22px;
+  font:800 11px/1 var(--sans);letter-spacing:.1em;text-transform:uppercase;
+  background:var(--red);color:#fff;border:2px solid var(--red);
+  transition:background .18s,transform .15s,box-shadow .2s;box-shadow:0 0 0 rgba(255,42,42,0)}
+.btn:hover{background:#ff4444;transform:translateY(-2px);box-shadow:0 10px 30px rgba(255,42,42,.35)}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+.btn.ghost:hover{border-color:var(--ink);background:transparent;box-shadow:none}
+@media(max-width:680px){nav{padding:0 22px}.navlinks .txt{display:none}}
 
-/* ── Shared layout ─────────────────────────────────────────────────── */
-.container { max-width: 1100px; margin: 0 auto; padding: 0 40px; }
-.section { padding: 130px 0; }
-.section-label {
-  font: 400 9px/1 'DM Mono', monospace;
-  letter-spacing: 0.45em; text-transform: uppercase;
-  color: #ff3b3b; margin-bottom: 22px;
-}
-.section-title {
-  font: 700 clamp(34px, 5vw, 52px)/1.1 'DM Sans', sans-serif;
-  color: #e8e8f0; margin-bottom: 56px;
-}
-.section-body {
-  font: 400 17px/1.75 'DM Sans', sans-serif;
-  color: rgba(232,232,240,0.58); max-width: 560px; margin-bottom: 52px;
-}
-@media (max-width: 768px) { .section { padding: 88px 0; } .container { padding: 0 24px; } }
+/* ══════════════════════════════════════════════════════════════════════════
+   SHARED LAYOUT
+   ══════════════════════════════════════════════════════════════════════════ */
+.wrap{max-width:1240px;margin:0 auto;padding:0 40px}
+section{position:relative}
+.eyebrow{font:500 10px/1 var(--mono);letter-spacing:.4em;text-transform:uppercase;color:var(--red);
+  display:flex;align-items:center;gap:12px;margin-bottom:26px}
+.eyebrow::before{content:"";width:34px;height:1px;background:var(--red)}
+.h-xl{font-family:var(--display);font-weight:400;line-height:.92;letter-spacing:.005em;
+  font-size:clamp(54px,9.5vw,150px);text-transform:uppercase}
+.h-lg{font-family:var(--display);font-weight:400;line-height:.94;
+  font-size:clamp(40px,6.5vw,88px);text-transform:uppercase}
+.h-lg .o{color:transparent;-webkit-text-stroke:1.5px var(--ink)}
+.h-lg .r{color:var(--red)}
+.lead{font:300 clamp(16px,2vw,20px)/1.7 var(--sans);color:var(--dim);max-width:560px}
+.divider{height:1px;background:var(--line);width:100%}
 
-/* ── Reveal animations ─────────────────────────────────────────────── */
-[data-reveal] {
-  opacity: 0; transform: translateY(36px);
-  transition: opacity 0.75s ease var(--d,0ms),
-              transform 0.75s cubic-bezier(0.22,1,0.36,1) var(--d,0ms);
-}
-[data-reveal="right"] { transform: translateX(52px); }
-[data-reveal="fade"]  { transform: none; }
-[data-reveal="scale"] { transform: scale(0.94); }
-[data-reveal].in { opacity: 1; transform: none; }
+/* brutalist panel + corner ticks */
+.panel{position:relative;border:2px solid var(--line);background:var(--bg2)}
+.panel.tick::before,.panel.tick::after{content:"";position:absolute;width:9px;height:9px;border:2px solid var(--red);z-index:2}
+.panel.tick::before{top:-2px;left:-2px;border-right:0;border-bottom:0}
+.panel.tick::after{bottom:-2px;right:-2px;border-left:0;border-top:0}
 
-/* ── Hero ──────────────────────────────────────────────────────────── */
-#hero {
-  height: 100vh; min-height: 600px;
-  position: relative; display: flex;
-  align-items: center; justify-content: center;
-  text-align: center; overflow: hidden;
-}
+/* reveal */
+[data-reveal]{opacity:0;transform:translateY(42px);
+  transition:opacity .8s ease var(--d,0ms),transform .85s cubic-bezier(.2,1,.3,1) var(--d,0ms)}
+[data-reveal="x"]{transform:translateX(56px)}
+[data-reveal="fade"]{transform:none}
+[data-reveal].in{opacity:1;transform:none}
 
-/* Log-line background */
-#log-bg {
-  position: absolute; inset: 0;
-  display: flex; pointer-events: none;
-  will-change: transform;
-}
-.log-col { flex: 1; overflow: hidden; }
-.log-col-inner {
-  font: 300 10px/1.95 'DM Mono', monospace;
-  color: rgba(232,232,240,0.055);
-  white-space: nowrap; padding: 0 20px;
-  user-select: none;
-}
-.log-col:first-child .log-col-inner { animation: logScroll 42s linear infinite; }
-.log-col:last-child  .log-col-inner { animation: logScroll 29s linear infinite; animation-delay: -8s; }
-@keyframes logScroll {
-  from { transform: translateY(0); }
-  to   { transform: translateY(-50%); }
-}
+/* ══════════════════════════════════════════════════════════════════════════
+   HERO
+   ══════════════════════════════════════════════════════════════════════════ */
+#hero{min-height:100vh;padding:150px 0 70px;position:relative;overflow:hidden;display:flex;align-items:center}
+#neural{position:absolute;inset:0;z-index:0;opacity:.9}
+#hero .wrap{position:relative;z-index:2;width:100%}
+.hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:50px;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;gap:9px;padding:7px 14px;border:1px solid var(--line);
+  font:500 10px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--dim);margin-bottom:30px}
+.hero-badge .d{width:6px;height:6px;border-radius:50%;background:var(--red);box-shadow:0 0 8px var(--red);animation:blip 1.6s infinite}
+.hero-title{font-family:var(--display);font-weight:400;text-transform:uppercase;
+  font-size:clamp(60px,11vw,168px);line-height:.84;letter-spacing:.004em;margin-bottom:20px}
+.hero-title .l2{color:var(--red);display:block;text-shadow:0 0 50px rgba(255,42,42,.35)}
+.hero-sub{font:300 clamp(16px,2.2vw,22px)/1.5 var(--sans);color:var(--dim);max-width:430px;margin-bottom:34px}
+.hero-sub b{color:var(--ink);font-weight:600}
+.hero-cta{display:flex;gap:14px;flex-wrap:wrap}
+.dataclip{position:absolute;right:14px;top:50%;transform:translateY(-50%) rotate(180deg);
+  writing-mode:vertical-rl;font:500 9.5px/1 var(--mono);letter-spacing:.4em;color:var(--faint);
+  text-transform:uppercase;z-index:2;pointer-events:none}
+@media(max-width:980px){.hero-grid{grid-template-columns:1fr;gap:38px}.dataclip{display:none}}
 
-/* Red corner vignette */
-#hero::before {
-  content: ''; position: absolute; inset: 0; pointer-events: none;
-  background:
-    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,59,59,0.07) 0%, transparent 70%),
-    radial-gradient(ellipse 60% 40% at 50% 100%, rgba(8,8,16,0.95) 0%, transparent 80%);
-  z-index: 1;
-}
+/* ══ incident cinematic ══ */
+.cine{position:relative;width:100%;background:#04040a;border:2px solid var(--line);
+  box-shadow:0 40px 100px rgba(0,0,0,.6)}
+.cine-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);
+  font:500 10px/1 var(--mono);letter-spacing:.14em;color:var(--dim);text-transform:uppercase;background:#070710}
+.cine-bar .dots{display:flex;gap:6px;margin-right:6px}
+.cine-bar .dots i{width:9px;height:9px;border-radius:50%;background:#22222e}
+.cine-bar .dots i:nth-child(1){background:#ff5f57}.cine-bar .dots i:nth-child(2){background:#febc2e}.cine-bar .dots i:nth-child(3){background:#28c840}
+.cine-bar .st{margin-left:auto;color:var(--green)}
+.cine-body{height:340px;position:relative;overflow:hidden}
+.cine-stage{position:absolute;inset:0;padding:16px 18px;opacity:0;transition:opacity .5s;pointer-events:none}
+.cine-stage.on{opacity:1}
+/* logs */
+#cine-logs{font:400 11.5px/1.85 var(--mono);overflow:hidden}
+#cine-logs .ln{white-space:nowrap;opacity:0;transform:translateY(6px);transition:opacity .25s,transform .25s}
+#cine-logs .ln.show{opacity:1;transform:none}
+#cine-logs .t{color:#4a4a66}#cine-logs .w{color:var(--amber)}#cine-logs .e{color:var(--red)}#cine-logs .i{color:var(--dim)}
+.engage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:rgba(4,4,10,.6)}
+.engage .sweep{width:74%;height:2px;background:linear-gradient(90deg,transparent,var(--cyan),var(--green),transparent);background-size:200% 100%;animation:sweepx 1.1s linear infinite}
+@keyframes sweepx{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.engage .et{font:700 13px/1 var(--mono);letter-spacing:.4em;color:var(--cyan);text-transform:uppercase}
+/* analysis */
+.an{display:grid;grid-template-rows:auto auto auto 1fr;gap:13px;height:100%}
+.an-row .lbl{font:500 8.5px/1 var(--mono);letter-spacing:.26em;color:var(--dim);text-transform:uppercase;margin-bottom:7px}
+.tl{display:flex;align-items:center;gap:0}
+.tl .seg{flex:1;height:2px;background:var(--line);position:relative;transform:scaleX(0);transform-origin:left;transition:transform .4s}
+.tl .seg.on{transform:scaleX(1)}
+.tl .dt{width:11px;height:11px;border-radius:50%;background:#10101a;border:2px solid var(--line);flex-shrink:0;transition:all .3s}
+.tl .dt.on{border-color:var(--cyan);background:var(--cyan);box-shadow:0 0 10px var(--cyan)}
+.tl .dt.r.on{border-color:var(--red);background:var(--red);box-shadow:0 0 10px var(--red)}
+.hyp{display:flex;align-items:center;gap:10px;margin-bottom:6px;opacity:0;transform:translateX(-8px);transition:opacity .35s,transform .35s}
+.hyp.on{opacity:1;transform:none}
+.hyp .bars{display:flex;gap:3px;align-items:flex-end;height:15px}
+.hyp .bars i{width:5px;background:#22222e;transition:background .3s}
+.hyp .bars i:nth-child(1){height:46%}.hyp .bars i:nth-child(2){height:73%}.hyp .bars i:nth-child(3){height:100%}
+.hyp.high.on .bars i{background:var(--red)}.hyp.med.on .bars i:nth-child(-n+2){background:var(--amber)}.hyp.low.on .bars i:nth-child(1){background:var(--dim)}
+.hyp .txt{font:400 11px/1.3 var(--mono);color:var(--ink);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hyp .tag{font:700 7.5px/1 var(--mono);letter-spacing:.1em;padding:3px 5px;border:1px solid;flex-shrink:0}
+.hyp.high .tag{color:var(--red);border-color:rgba(255,42,42,.4)}.hyp.med .tag{color:var(--amber);border-color:rgba(245,158,11,.4)}.hyp.low .tag{color:var(--dim);border-color:var(--line)}
+.an-foot{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;border-top:1px solid var(--line);padding-top:11px}
+.sev{display:flex;align-items:center;gap:10px}
+.sev svg{width:50px;height:50px;transform:rotate(-135deg)}
+.sev .track{fill:none;stroke:var(--line);stroke-width:5}
+.sev .arc{fill:none;stroke:var(--red);stroke-width:5;stroke-linecap:round;stroke-dasharray:0 999;transition:stroke-dasharray 1s cubic-bezier(.2,1,.3,1);filter:drop-shadow(0 0 5px rgba(255,42,42,.5))}
+.sev .snum{font:700 17px/1 var(--mono);color:var(--red)}
+.sev .slab{font:500 8px/1.3 var(--mono);color:var(--dim);text-transform:uppercase;letter-spacing:.1em}
+.fix{font:400 10px/1.7 var(--mono);color:var(--green);overflow:hidden}
+.fix .fl{opacity:0;transition:opacity .3s}.fix .fl.on{opacity:1}
+.fix .k{color:var(--dim)}
+@media(max-width:980px){.cine-body{height:320px}}
 
-#hero-content {
-  position: relative; z-index: 2;
-  display: flex; flex-direction: column; align-items: center;
-  will-change: transform;
-}
+/* ══════════════════════════════════════════════════════════════════════════
+   MARQUEE
+   ══════════════════════════════════════════════════════════════════════════ */
+.marquee{border-top:2px solid var(--ink);border-bottom:2px solid var(--ink);background:var(--ink);color:var(--bg);
+  overflow:hidden;white-space:nowrap;padding:14px 0}
+.marquee .track{display:inline-flex;gap:0;animation:scroll 26s linear infinite;will-change:transform}
+.marquee span{font-family:var(--display);font-size:26px;letter-spacing:.04em;text-transform:uppercase;padding:0 26px}
+.marquee span .x{color:var(--red)}
+@keyframes scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 
-.hero-badge {
-  display: inline-flex; align-items: center; gap: 8px;
-  font: 500 9px/1 'DM Mono', monospace; letter-spacing: 0.3em;
-  text-transform: uppercase; color: rgba(255,59,59,0.85);
-  border: 1px solid rgba(255,59,59,0.22);
-  background: rgba(255,59,59,0.07);
-  padding: 8px 16px; border-radius: 100px; margin-bottom: 36px;
-  opacity: 0; animation: fadeUp 0.6s ease 0.8s forwards;
-}
-.hero-badge-dot {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: #ff3b3b; box-shadow: 0 0 6px rgba(255,59,59,0.9);
-  animation: pulse 1.8s ease-in-out infinite;
-}
-@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+/* ══════════════════════════════════════════════════════════════════════════
+   PROBLEM
+   ══════════════════════════════════════════════════════════════════════════ */
+#problem{padding:130px 0}
+.prob-grid{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:end}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:2px solid var(--line);border-left:2px solid var(--line)}
+.stat{padding:30px 26px;border-right:2px solid var(--line);border-bottom:2px solid var(--line)}
+.stat .n{font-family:var(--display);font-size:clamp(44px,6vw,72px);line-height:1;color:var(--ink)}
+.stat .n.red{color:var(--red)}.stat .n.cy{color:var(--cyan)}
+.stat .c{font:500 10px/1.4 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-top:12px}
+@media(max-width:880px){.prob-grid{grid-template-columns:1fr;gap:44px}}
 
-.hero-title {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: clamp(96px, 18vw, 260px);
-  letter-spacing: 0.08em; line-height: 0.92;
-  color: #fff;
-  text-shadow: 0 0 120px rgba(255,59,59,0.18);
-  margin-bottom: 28px;
-}
-.hero-letter {
-  display: inline-block;
-  opacity: 0; transform: translateY(50px) skewX(-4deg);
-  transition: opacity 0.55s ease, transform 0.55s cubic-bezier(0.34,1.56,0.64,1);
-}
-.hero-letter.in { opacity: 1; transform: translateY(0) skewX(0); }
+/* ══════════════════════════════════════════════════════════════════════════
+   PIPELINE
+   ══════════════════════════════════════════════════════════════════════════ */
+#pipeline{padding:130px 0;border-top:1px solid var(--line)}
+.pipe{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-top:60px;border-top:2px solid var(--line)}
+.stage{padding:38px 30px 44px;border-right:2px solid var(--line);position:relative;transition:background .3s}
+.stage:last-child{border-right:0}
+.stage:hover{background:var(--bg2)}
+.stage .no{font-family:var(--display);font-size:64px;line-height:.8;color:var(--faint);transition:color .3s}
+.stage:hover .no{color:var(--red)}
+.stage h3{font:700 19px/1.2 var(--sans);margin:18px 0 10px;letter-spacing:-.01em}
+.stage .model{font:500 11px/1 var(--mono);color:var(--cyan);margin-bottom:14px;letter-spacing:.05em}
+.stage p{font:300 14px/1.65 var(--sans);color:var(--dim)}
+.stage .arrow{position:absolute;right:-12px;top:46px;color:var(--red);font:700 22px/1 var(--mono);z-index:3;background:var(--bg);padding:2px}
+@media(max-width:880px){.pipe{grid-template-columns:1fr;border-left:2px solid var(--line)}.stage{border-right:0;border-bottom:2px solid var(--line)}.stage .arrow{display:none}}
 
-.hero-sub {
-  font: 300 clamp(16px, 2.5vw, 22px)/1.4 'DM Sans', sans-serif;
-  color: rgba(232,232,240,0.55); margin-bottom: 52px; letter-spacing: 0.01em;
-  opacity: 0; animation: fadeUp 0.6s ease 1.1s forwards;
-}
-.hero-sub strong { color: #ff3b3b; font-weight: 500; }
+/* ══════════════════════════════════════════════════════════════════════════
+   OUTPUT DISSECTED
+   ══════════════════════════════════════════════════════════════════════════ */
+#output{padding:130px 0;border-top:1px solid var(--line)}
+.out-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:22px;margin-top:60px}
+.out-card{border:2px solid var(--line);background:var(--bg2);padding:26px;position:relative}
+.out-card .ic{font:500 10px/1 var(--mono);letter-spacing:.24em;color:var(--red);text-transform:uppercase;margin-bottom:16px}
+.out-card h4{font:800 22px/1.1 var(--sans);margin-bottom:10px;letter-spacing:-.01em}
+.out-card p{font:300 13.5px/1.6 var(--sans);color:var(--dim)}
+.c-tl{grid-column:span 7}.c-sev{grid-column:span 5}.c-hyp{grid-column:span 5}.c-fix{grid-column:span 7}
+/* mini timeline */
+.mtl{display:flex;align-items:center;margin:22px 0 6px}
+.mtl .d{width:13px;height:13px;border-radius:50%;background:#10101a;border:2px solid var(--line);flex-shrink:0;transition:all .5s var(--md,0ms)}
+.mtl .s{flex:1;height:2px;background:var(--line);position:relative;overflow:hidden}
+.mtl .s::after{content:"";position:absolute;inset:0;background:var(--cyan);transform:scaleX(0);transform-origin:left;transition:transform .6s var(--md,0ms)}
+.out-card.in .mtl .s::after{transform:scaleX(1)}
+.out-card.in .mtl .d{border-color:var(--cyan);background:var(--cyan);box-shadow:0 0 10px var(--cyan)}
+.out-card.in .mtl .d.r{border-color:var(--red);background:var(--red);box-shadow:0 0 10px var(--red)}
+/* sev gauge */
+.gauge{display:flex;align-items:center;gap:20px;margin-top:20px}
+.gauge svg{width:96px;height:96px;transform:rotate(-135deg)}
+.gauge .tk{fill:none;stroke:var(--line);stroke-width:7}
+.gauge .ar{fill:none;stroke:var(--red);stroke-width:7;stroke-linecap:round;stroke-dasharray:0 999;filter:drop-shadow(0 0 6px rgba(255,42,42,.5))}
+.out-card.in .gauge .ar{transition:stroke-dasharray 1.1s cubic-bezier(.2,1,.3,1)}
+.gauge .gn{font-family:var(--display);font-size:46px;line-height:1;color:var(--red)}
+.gauge .gx{font:500 11px/1.4 var(--mono);color:var(--dim);text-transform:uppercase;letter-spacing:.1em}
+/* mini hypotheses */
+.mhyp{margin-top:18px}
+.mh{display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid var(--line)}
+.mh:last-child{border-bottom:0}
+.mh .bars{display:flex;gap:3px;align-items:flex-end;height:17px}
+.mh .bars i{width:5px;background:#22222e}
+.mh .bars i:nth-child(1){height:42%}.mh .bars i:nth-child(2){height:71%}.mh .bars i:nth-child(3){height:100%}
+.mh.high .bars i{background:var(--red)}.mh.med .bars i:nth-child(-n+2){background:var(--amber)}.mh.low .bars i:nth-child(1){background:var(--dim)}
+.mh .mt{font:400 12px/1.3 var(--mono);color:var(--ink);flex:1}
+.mh .tg{font:700 8px/1 var(--mono);letter-spacing:.08em;padding:3px 6px;border:1px solid}
+.mh.high .tg{color:var(--red);border-color:rgba(255,42,42,.4)}.mh.med .tg{color:var(--amber);border-color:rgba(245,158,11,.4)}.mh.low .tg{color:var(--dim);border-color:var(--line)}
+/* mini fix */
+.mfix{margin-top:18px;font:400 12px/2 var(--mono)}
+.mfix .row{display:flex;gap:10px;color:var(--green)}
+.mfix .row .n{color:var(--dim)}
+.mfix .copy{margin-left:auto;color:var(--dim);font-size:10px;border:1px solid var(--line);padding:1px 6px;align-self:center}
+@media(max-width:880px){.out-grid{grid-template-columns:1fr}.c-tl,.c-sev,.c-hyp,.c-fix{grid-column:span 1}}
 
-.btn-hero {
-  display: inline-flex; align-items: center; gap: 10px;
-  padding: 18px 42px;
-  font: 600 13px/1 'DM Sans', sans-serif;
-  letter-spacing: 0.1em; text-transform: uppercase;
-  background: #ff3b3b; color: #fff; border-radius: 6px;
-  transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
-  box-shadow: 0 0 48px rgba(255,59,59,0.35), 0 4px 20px rgba(0,0,0,0.5);
-  opacity: 0; animation: fadeUp 0.6s ease 1.35s forwards;
-}
-.btn-hero:hover {
-  background: #ff5252; transform: translateY(-3px);
-  box-shadow: 0 0 72px rgba(255,59,59,0.5), 0 8px 28px rgba(0,0,0,0.6);
-}
-.btn-hero:active { transform: translateY(0); }
+/* ══════════════════════════════════════════════════════════════════════════
+   FEATURES BENTO
+   ══════════════════════════════════════════════════════════════════════════ */
+#features{padding:130px 0;border-top:1px solid var(--line)}
+.bento{display:grid;grid-template-columns:repeat(6,1fr);grid-auto-rows:minmax(150px,auto);gap:0;
+  margin-top:60px;border-top:2px solid var(--line);border-left:2px solid var(--line)}
+.cell{border-right:2px solid var(--line);border-bottom:2px solid var(--line);padding:26px;position:relative;
+  transition:background .25s;overflow:hidden}
+.cell:hover{background:var(--bg2)}
+.cell .cn{font:500 9.5px/1 var(--mono);letter-spacing:.2em;color:var(--red);text-transform:uppercase;margin-bottom:auto}
+.cell h4{font:800 18px/1.15 var(--sans);margin:16px 0 8px;letter-spacing:-.01em}
+.cell p{font:300 12.5px/1.55 var(--sans);color:var(--dim)}
+.cell.wide{grid-column:span 3}.cell.norm{grid-column:span 2}.cell.tall{grid-column:span 2}
+.cell .num{position:absolute;top:18px;right:20px;font-family:var(--display);font-size:30px;color:var(--faint);transition:color .25s}
+.cell:hover .num{color:var(--red)}
+/* keyboard tile */
+.keys{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.keys kbd{font:700 12px/1 var(--mono);padding:9px 12px;border:2px solid var(--line);background:#05050c;color:var(--dim);
+  min-width:34px;text-align:center;transition:all .12s;cursor:none}
+.keys kbd.hit{border-color:var(--red);color:var(--red);background:rgba(255,42,42,.12);transform:translateY(-2px);box-shadow:0 0 14px rgba(255,42,42,.3)}
+.keyout{margin-top:14px;font:500 11px/1.4 var(--mono);color:var(--cyan);min-height:16px;letter-spacing:.05em}
+@media(max-width:880px){.bento{grid-template-columns:1fr 1fr}.cell.wide,.cell.norm,.cell.tall{grid-column:span 1}}
+@media(max-width:520px){.bento{grid-template-columns:1fr}.cell.wide,.cell.norm,.cell.tall{grid-column:span 1}}
 
-.scroll-cue {
-  position: absolute; bottom: 36px; left: 50%;
-  transform: translateX(-50%);
-  font: 400 8px/1 'DM Mono', monospace;
-  letter-spacing: 0.5em; text-transform: uppercase;
-  color: rgba(232,232,240,0.18); z-index: 2;
-  animation: bobDown 2.4s ease-in-out infinite;
-  opacity: 0; animation-delay: 1.8s;
-  /* keep the fade-in */
-  animation: fadeUp 0.5s ease 1.8s forwards, bobDown 2.4s ease-in-out 2.3s infinite;
-}
-@keyframes bobDown {
-  0%,100% { transform: translateX(-50%) translateY(0); }
-  50%     { transform: translateX(-50%) translateY(7px); }
-}
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(16px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+/* ══════════════════════════════════════════════════════════════════════════
+   SCENARIOS
+   ══════════════════════════════════════════════════════════════════════════ */
+#scenarios{padding:130px 0;border-top:1px solid var(--line)}
+.scn{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:60px}
+.scard{border:2px solid var(--line);background:var(--bg2);padding:28px;transition:transform .25s,border-color .25s}
+.scard:hover{transform:translateY(-6px);border-color:rgba(255,42,42,.4)}
+.scard .tag{font:500 9.5px/1 var(--mono);letter-spacing:.2em;color:var(--dim);text-transform:uppercase}
+.scard h4{font:800 21px/1.1 var(--sans);margin:14px 0 10px;letter-spacing:-.01em}
+.scard h4 .a{color:var(--red)}
+.scard p{font:300 13px/1.6 var(--sans);color:var(--dim);margin-bottom:18px}
+.scard .meta{display:flex;gap:16px;font:500 10px/1 var(--mono);color:var(--dim);text-transform:uppercase;letter-spacing:.1em;padding-top:14px;border-top:1px solid var(--line)}
+.scard .meta b{color:var(--red)}
+@media(max-width:880px){.scn{grid-template-columns:1fr}}
 
-/* ── Problem ───────────────────────────────────────────────────────── */
-#problem { border-top: 1px solid rgba(255,255,255,0.04); }
-.stats-grid {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
-}
-.stat-card {
-  padding: 44px 32px 40px;
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 12px;
-  background: linear-gradient(160deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.01) 100%);
-  position: relative; overflow: hidden;
-}
-.stat-card::after {
-  content: ''; position: absolute;
-  top: 0; left: 0; right: 0; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255,59,59,0.4), transparent);
-}
-.stat-num {
-  font: 400 clamp(52px, 7vw, 76px)/1 'Bebas Neue', sans-serif;
-  color: #ff3b3b; letter-spacing: 0.05em; margin-bottom: 18px;
-  text-shadow: 0 0 48px rgba(255,59,59,0.45);
-}
-.stat-desc {
-  font: 400 14px/1.55 'DM Sans', sans-serif;
-  color: rgba(232,232,240,0.45);
-}
-@media (max-width: 768px) {
-  .stats-grid { grid-template-columns: 1fr; max-width: 420px; }
-  .section-title { margin-bottom: 36px; }
-}
+/* ══════════════════════════════════════════════════════════════════════════
+   STACK (inverted)
+   ══════════════════════════════════════════════════════════════════════════ */
+#stack{background:var(--ink);color:var(--bg);padding:110px 0}
+#stack .eyebrow{color:var(--red)}#stack .eyebrow::before{background:var(--red)}
+#stack .h-lg{color:var(--bg)}
+.stack-list{display:flex;flex-wrap:wrap;gap:0;margin-top:50px;border-top:2px solid var(--bg)}
+.stk{flex:1 1 auto;min-width:180px;padding:24px 4px;border-bottom:2px solid var(--bg);
+  font-family:var(--display);font-size:clamp(26px,3.6vw,44px);text-transform:uppercase;line-height:1;
+  color:var(--bg);transition:color .2s,padding-left .2s;border-right:2px solid rgba(7,7,12,.12)}
+.stk:hover{color:var(--red);padding-left:14px}
+.stk small{display:block;font:500 10px/1 var(--mono);letter-spacing:.16em;color:rgba(7,7,12,.5);margin-top:8px;text-transform:uppercase}
 
-/* ── How it works ──────────────────────────────────────────────────── */
-#how { background: rgba(255,255,255,0.012); border-top: 1px solid rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.04); }
-.steps { display: flex; flex-direction: column; }
-.step {
-  display: grid; grid-template-columns: 96px 1fr; gap: 40px;
-  align-items: start; padding: 52px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.045);
-}
-.step:last-child { border-bottom: none; }
-.step-num {
-  font: 400 88px/1 'Bebas Neue', sans-serif;
-  color: rgba(255,59,59,0.14); letter-spacing: 0.04em;
-  padding-top: 4px;
-}
-.step-name {
-  font: 700 22px/1 'DM Sans', sans-serif;
-  letter-spacing: 0.16em; color: #e8e8f0; margin-bottom: 18px;
-}
-.step-desc {
-  font: 400 16px/1.75 'DM Sans', sans-serif;
-  color: rgba(232,232,240,0.52); max-width: 580px; margin-bottom: 24px;
-}
-.chip-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.chip {
-  font: 400 10px/1 'DM Mono', monospace; letter-spacing: 0.05em;
-  padding: 7px 13px; border-radius: 4px;
-  border: 1px solid rgba(255,255,255,0.08);
-  color: rgba(232,232,240,0.45);
-  background: rgba(255,255,255,0.03);
-}
-.chip.red { border-color: rgba(255,59,59,0.28); color: rgba(255,59,59,0.75); background: rgba(255,59,59,0.05); }
-.chip.green { border-color: rgba(0,229,160,0.22); color: rgba(0,229,160,0.7); background: rgba(0,229,160,0.04); }
-.arrow-sep { color: rgba(232,232,240,0.2); font-size: 13px; }
-@media (max-width: 680px) {
-  .step { grid-template-columns: 1fr; gap: 12px; }
-  .step-num { font-size: 52px; }
-}
+/* ══════════════════════════════════════════════════════════════════════════
+   CTA FOOTER
+   ══════════════════════════════════════════════════════════════════════════ */
+#cta{padding:150px 0 60px;text-align:center;position:relative;overflow:hidden;border-top:1px solid var(--line)}
+#cta .glow{position:absolute;top:30%;left:50%;transform:translate(-50%,-50%);width:680px;height:680px;
+  background:radial-gradient(circle,rgba(255,42,42,.10),transparent 65%);pointer-events:none}
+.cta-title{font-family:var(--display);font-weight:400;text-transform:uppercase;line-height:.9;
+  font-size:clamp(48px,9vw,128px);position:relative;z-index:2}
+.cta-title .r{color:var(--red);text-shadow:0 0 60px rgba(255,42,42,.4)}
+.cta-sub{font:300 17px/1.6 var(--sans);color:var(--dim);max-width:480px;margin:26px auto 40px;position:relative;z-index:2}
+.cta-cta{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;position:relative;z-index:2}
+footer{margin-top:120px;border-top:1px solid var(--line);padding:30px 0}
+.foot{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:18px;
+  font:500 11px/1.5 var(--mono);color:var(--dim);letter-spacing:.08em;text-transform:uppercase}
+.foot a{transition:color .2s}.foot a:hover{color:var(--red)}
+.foot .fl{display:flex;gap:22px}
 
-/* ── Signal strength ───────────────────────────────────────────────── */
-#signal { border-top: 1px solid rgba(255,255,255,0.04); }
-.signals { display: flex; flex-direction: column; gap: 36px; max-width: 680px; }
-.sig-row {
-  display: flex; align-items: center; gap: 32px;
-  padding: 28px 32px; border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.05);
-  background: rgba(255,255,255,0.018);
+/* ══ reduced motion ══ */
+@media(prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+  [data-reveal]{opacity:1!important;transform:none!important}
+  body{cursor:auto!important}#cursor,#grain{display:none!important}
 }
-.dots { display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
-.dot {
-  width: 15px; height: 15px; border-radius: 50%;
-  border: 2px solid currentColor;
-  background: transparent;
-  transition: background 0.4s ease, box-shadow 0.4s ease;
-}
-.dot.red   { color: #ff3b3b; }
-.dot.amber { color: #f59e0b; }
-.dot.gray  { color: rgba(232,232,240,0.2); }
-.dot.on    { background: currentColor; }
-.dot.red.on   { box-shadow: 0 0 10px rgba(255,59,59,0.65), 0 0 20px rgba(255,59,59,0.25); }
-.dot.amber.on { box-shadow: 0 0 10px rgba(245,158,11,0.55), 0 0 20px rgba(245,158,11,0.2); }
-.sig-info { display: flex; flex-direction: column; gap: 6px; }
-.sig-label {
-  font: 700 10px/1 'DM Mono', monospace; letter-spacing: 0.25em;
-}
-.sig-label.h { color: #ff3b3b; }
-.sig-label.m { color: #f59e0b; }
-.sig-label.l { color: rgba(232,232,240,0.3); }
-.sig-desc {
-  font: 400 14px/1.55 'DM Sans', sans-serif;
-  color: rgba(232,232,240,0.48);
-}
-@media (max-width: 540px) { .sig-row { flex-direction: column; align-items: flex-start; gap: 16px; } }
-
-/* ── Severity ──────────────────────────────────────────────────────── */
-#severity { background: rgba(255,255,255,0.012); border-top: 1px solid rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.04); }
-.sev-layout {
-  display: grid; grid-template-columns: 200px 1fr; gap: 88px; align-items: center;
-}
-.sev-gauge {
-  position: relative; width: 200px; height: 200px; flex-shrink: 0;
-}
-.sev-svg { width: 100%; height: 100%; }
-.sev-num {
-  position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  font: 400 88px/1 'Bebas Neue', sans-serif;
-  color: #ff3b3b; letter-spacing: 0.04em;
-  text-shadow: 0 0 36px rgba(255,59,59,0.65);
-}
-.sev-factors { display: flex; gap: 28px; flex-wrap: wrap; margin-top: 36px; }
-.sev-factor {
-  display: flex; align-items: center; gap: 9px;
-  font: 400 13px/1 'DM Mono', monospace;
-  color: rgba(232,232,240,0.38);
-}
-.sev-dot {
-  width: 7px; height: 7px; border-radius: 50%;
-  background: #ff3b3b; box-shadow: 0 0 7px rgba(255,59,59,0.7); flex-shrink: 0;
-}
-@media (max-width: 768px) {
-  .sev-layout { grid-template-columns: 1fr; gap: 48px; }
-  .sev-gauge { margin: 0 auto; }
-  .sev-factors { justify-content: center; }
-}
-
-/* ── Demo scenarios ────────────────────────────────────────────────── */
-#scenarios { border-top: 1px solid rgba(255,255,255,0.04); }
-.cards-grid {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px;
-}
-.flip-card { perspective: 1100px; height: 340px; }
-.flip-inner {
-  width: 100%; height: 100%; position: relative;
-  transform-style: preserve-3d;
-  transition: transform 0.65s cubic-bezier(0.4,0,0.2,1);
-}
-@media (hover: hover) { .flip-card:hover .flip-inner { transform: rotateY(180deg); } }
-.flip-card.flipped .flip-inner { transform: rotateY(180deg); }
-.flip-front, .flip-back {
-  position: absolute; inset: 0; backface-visibility: hidden;
-  border-radius: 12px; padding: 28px;
-  border: 1px solid rgba(255,255,255,0.06);
-}
-.flip-front {
-  background: linear-gradient(160deg, rgba(255,255,255,0.025), rgba(255,255,255,0.01));
-  display: flex; flex-direction: column;
-}
-.flip-back {
-  background: rgba(255,59,59,0.04);
-  border-color: rgba(255,59,59,0.12);
-  transform: rotateY(180deg);
-  display: flex; flex-direction: column; gap: 14px;
-}
-.card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.card-id { font: 400 56px/1 'Bebas Neue', sans-serif; color: rgba(255,59,59,0.2); letter-spacing: 0.04em; }
-.sev-pill {
-  font: 500 9px/1 'DM Mono', monospace; letter-spacing: 0.18em;
-  padding: 5px 10px; border-radius: 4px;
-}
-.sev-pill.c9 { color: #ff3b3b; border: 1px solid rgba(255,59,59,0.3); background: rgba(255,59,59,0.08); }
-.sev-pill.c7 { color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); background: rgba(245,158,11,0.07); }
-.sev-pill.c6 { color: #e6a800; border: 1px solid rgba(245,158,11,0.2); background: rgba(245,158,11,0.05); }
-.card-title { font: 600 16px/1.3 'DM Sans', sans-serif; color: #e8e8f0; margin-bottom: 12px; }
-.card-cause { font: 400 13px/1.65 'DM Mono', monospace; color: rgba(232,232,240,0.38); flex: 1; }
-.card-hint { font: 400 9px/1 'DM Mono', monospace; letter-spacing: 0.25em; color: rgba(255,255,255,0.12); margin-top: auto; padding-top: 12px; }
-.fix-head { font: 600 8px/1 'DM Mono', monospace; letter-spacing: 0.35em; color: rgba(255,59,59,0.65); }
-.fix-steps { display: flex; flex-direction: column; gap: 9px; padding-left: 0; list-style: none; }
-.fix-steps li { font: 400 12px/1.5 'DM Mono', monospace; color: rgba(232,232,240,0.45); display: flex; gap: 8px; }
-.fix-steps li::before { content: attr(data-n); color: rgba(255,59,59,0.4); flex-shrink: 0; font-weight: 500; }
-.fix-steps code {
-  display: block; margin-top: 3px;
-  font: 400 10px/1.4 'DM Mono', monospace;
-  background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.07);
-  padding: 4px 8px; border-radius: 4px; color: rgba(0,229,160,0.75);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-@media (max-width: 900px) { .cards-grid { grid-template-columns: 1fr; max-width: 460px; } }
-
-/* ── Built with ────────────────────────────────────────────────────── */
-#built { background: rgba(255,255,255,0.012); border-top: 1px solid rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.04); }
-.tech-row { display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; align-items: stretch; }
-.tech-tile {
-  display: flex; flex-direction: column; align-items: center; gap: 10px;
-  padding: 22px 28px; border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.05);
-  background: rgba(255,255,255,0.02);
-  transition: border-color 0.2s, transform 0.2s;
-  min-width: 130px;
-}
-.tech-tile:hover { transform: translateY(-3px); }
-.tech-name {
-  font: 500 13px/1 'DM Mono', monospace;
-  letter-spacing: 0.06em;
-}
-.tech-sub {
-  font: 400 10px/1.4 'DM Mono', monospace;
-  color: rgba(232,232,240,0.28); text-align: center;
-}
-.t-nvidia { color: #76b900; } .tech-tile:has(.t-nvidia):hover { border-color: rgba(118,185,0,0.25); }
-.t-clerk  { color: #7c3aed; } .tech-tile:has(.t-clerk):hover  { border-color: rgba(124,58,237,0.25); }
-.t-render { color: #46e3b7; } .tech-tile:has(.t-render):hover { border-color: rgba(70,227,183,0.25); }
-.t-react  { color: #61dafb; } .tech-tile:has(.t-react):hover  { border-color: rgba(97,218,251,0.25); }
-.t-vite   { color: #646cff; } .tech-tile:has(.t-vite):hover   { border-color: rgba(100,108,255,0.25); }
-.t-prisma { color: #5a67d8; } .tech-tile:has(.t-prisma):hover { border-color: rgba(90,103,216,0.25); }
-@media (max-width: 600px) { .tech-tile { min-width: calc(50% - 9px); } }
-
-/* ── CTA footer ────────────────────────────────────────────────────── */
-#cta {
-  padding: 140px 0 100px; text-align: center;
-  position: relative; overflow: hidden;
-  border-top: 1px solid rgba(255,255,255,0.04);
-}
-#cta::before {
-  content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(ellipse 70% 55% at 50% 0%, rgba(255,59,59,0.08) 0%, transparent 70%);
-}
-.cta-title {
-  font: 400 clamp(54px, 9.5vw, 120px)/1.02 'Bebas Neue', sans-serif;
-  letter-spacing: 0.04em; color: #e8e8f0;
-  margin-bottom: 52px; position: relative;
-}
-.cta-links { margin-top: 36px; display: flex; gap: 32px; align-items: center; justify-content: center; flex-wrap: wrap; }
-.cta-links a {
-  display: inline-flex; align-items: center; gap: 8px;
-  font: 400 12px/1 'DM Mono', monospace; letter-spacing: 0.08em;
-  color: rgba(232,232,240,0.3);
-  transition: color 0.2s;
-}
-.cta-links a:hover { color: rgba(232,232,240,0.7); }
-.cta-fine { margin-top: 60px; font: 400 10px/1 'DM Mono', monospace; letter-spacing: 0.25em; color: rgba(232,232,240,0.15); }
+/* touch: no custom cursor */
+@media(hover:none){body{cursor:auto}#cursor{display:none}}
 </style>
 </head>
 <body>
-
 <div id="grain"></div>
 <div id="cursor"></div>
 
-<!-- ── Nav ─────────────────────────────────────────────────────────── -->
+<!-- ══ STATUS BAR ══ -->
+<div id="statusbar">
+  <div class="sb-l"><span class="blip"></span>SYSTEM ONLINE</div>
+  <div class="sb-mid">NERVE · INCIDENT ROOT CAUSE ANALYZER</div>
+  <div class="sb-r"><span>V1.0</span><span class="live">● PIPELINE READY</span></div>
+</div>
+
+<!-- ══ NAV ══ -->
 <nav id="nav">
-  <div class="nav-logo">N<em>E</em>RVE</div>
-  <a href="https://nerve-ql1v.onrender.com" target="_blank" rel="noopener" class="btn-nav">
-    Launch App &rarr;
-  </a>
+  <div class="brand">NER<em>V</em>E<span class="dot"></span></div>
+  <div class="navlinks">
+    <a class="txt" href="#problem">Problem</a>
+    <a class="txt" href="#pipeline">Pipeline</a>
+    <a class="txt" href="#features">Features</a>
+    <a class="btn" href="https://nerve-ql1v.onrender.com" target="_blank" rel="noopener">Launch ↗</a>
+  </div>
 </nav>
 
-<!-- ── Hero ────────────────────────────────────────────────────────── -->
+<!-- ══ HERO ══ -->
 <section id="hero">
-  <div id="log-bg">
-    <div class="log-col"><div class="log-col-inner" id="log-a"></div></div>
-    <div class="log-col"><div class="log-col-inner" id="log-b"></div></div>
-  </div>
-
-  <div id="hero-content">
-    <div class="hero-badge">
-      <span class="hero-badge-dot"></span>
-      Incident analysis engine online
-    </div>
-    <h1 class="hero-title" id="hero-title" aria-label="NERVE"></h1>
-    <p class="hero-sub">Root cause analysis. <strong>47 seconds.</strong></p>
-    <a href="https://nerve-ql1v.onrender.com" target="_blank" rel="noopener" class="btn-hero">
-      Launch App &rarr;
-    </a>
-  </div>
-
-  <div class="scroll-cue">&#x2193;&nbsp;&nbsp;scroll</div>
-</section>
-
-<!-- ── Problem ──────────────────────────────────────────────────────── -->
-<section class="section" id="problem">
-  <div class="container">
-    <div class="section-label" data-reveal data-delay="0">The Problem</div>
-    <h2 class="section-title" data-reveal data-delay="80">
-      Every P1 has a culprit.<br>Finding it shouldn't take an hour.
-    </h2>
-    <div class="stats-grid">
-      <div class="stat-card" data-reveal data-delay="0">
-        <div class="stat-num" id="c1">0 MIN</div>
-        <div class="stat-desc">Average time to diagnose a P1 incident</div>
-      </div>
-      <div class="stat-card" data-reveal data-delay="120">
-        <div class="stat-num" id="c2">0%</div>
-        <div class="stat-desc">Of SRE time spent diagnosing, not fixing</div>
-      </div>
-      <div class="stat-card" data-reveal data-delay="240">
-        <div class="stat-num" id="c3">0 TOOLS</div>
-        <div class="stat-desc">Context-switched during a single outage</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── How it works ─────────────────────────────────────────────────── -->
-<section class="section" id="how">
-  <div class="container">
-    <div class="section-label" data-reveal>How It Works</div>
-    <h2 class="section-title" data-reveal data-delay="80">Three steps. One answer.</h2>
-
-    <div class="steps">
-      <div class="step" data-reveal="right" data-delay="0">
-        <div class="step-num">01</div>
-        <div>
-          <div class="step-name">INGEST</div>
-          <div class="step-desc">Paste raw logs, drop a file, or pull from your clipboard. NERVE accepts structured and unstructured output from Kubernetes, Redis, Postgres, Kafka, and any service that emits timestamped text.</div>
-          <div class="chip-row" style="margin-top:18px;">
-            <span class="chip">.log</span><span class="chip">.txt</span><span class="chip">.json</span>
-            <span class="chip">drag &amp; drop</span><span class="chip">clipboard paste</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="step" data-reveal="right" data-delay="200">
-        <div class="step-num">02</div>
-        <div>
-          <div class="step-name">ANALYZE</div>
-          <div class="step-desc">A three-model AI pipeline correlates signals across services. Nemotron 49B for primary analysis, Llama 8B for automatic failover, and a second Llama 8B pass to guarantee valid structured JSON output.</div>
-          <div class="chip-row" style="margin-top:18px;">
-            <span class="chip red">Nemotron 49B</span>
-            <span class="arrow-sep">&rarr;</span>
-            <span class="chip">Llama 8B fallback</span>
-            <span class="arrow-sep">&rarr;</span>
-            <span class="chip">JSON formatter</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="step" data-reveal="right" data-delay="400">
-        <div class="step-num">03</div>
-        <div>
-          <div class="step-name">DIAGNOSE</div>
-          <div class="step-desc">Structured output in under 60 seconds: a reconstructed incident timeline, root cause hypotheses ranked by signal strength, concrete fix steps with real commands, and a severity score with blast-radius justification.</div>
-          <div class="chip-row" style="margin-top:18px;">
-            <span class="chip green">Timeline</span>
-            <span class="chip green">Hypotheses</span>
-            <span class="chip green">Fix Steps</span>
-            <span class="chip green">Severity 1–10</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── Signal strength ───────────────────────────────────────────────── -->
-<section class="section" id="signal">
-  <div class="container">
-    <div class="section-label" data-reveal>Signal Strength</div>
-    <h2 class="section-title" data-reveal data-delay="80">Not all hypotheses are equal.</h2>
-    <p class="section-body" data-reveal data-delay="140">NERVE ranks every root cause candidate by the strength of its evidence trail — so you fix the right thing first, not the most recent thing you noticed.</p>
-
-    <div class="signals">
-      <div class="sig-row" data-reveal data-delay="0" data-dots="3" data-dot-color="red">
-        <div class="dots">
-          <span class="dot red" data-di="0"></span>
-          <span class="dot red" data-di="1"></span>
-          <span class="dot red" data-di="2"></span>
-        </div>
-        <div class="sig-info">
-          <span class="sig-label h">HIGH</span>
-          <span class="sig-desc">Direct causal chain confirmed by multiple corroborating log lines. Fix this first.</span>
-        </div>
-      </div>
-
-      <div class="sig-row" data-reveal data-delay="100" data-dots="2" data-dot-color="amber">
-        <div class="dots">
-          <span class="dot amber" data-di="0"></span>
-          <span class="dot amber" data-di="1"></span>
-          <span class="dot gray"></span>
-        </div>
-        <div class="sig-info">
-          <span class="sig-label m">MED</span>
-          <span class="sig-desc">Strong correlation across two or more services, limited direct causation evidence.</span>
-        </div>
-      </div>
-
-      <div class="sig-row" data-reveal data-delay="200" data-dots="1" data-dot-color="gray">
-        <div class="dots">
-          <span class="dot gray" data-di="0"></span>
-          <span class="dot gray" style="opacity:0.3"></span>
-          <span class="dot gray" style="opacity:0.3"></span>
-        </div>
-        <div class="sig-info">
-          <span class="sig-label l">LOW</span>
-          <span class="sig-desc">Possible contributor, insufficient evidence. Background noise candidate — investigate last.</span>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── Severity score ────────────────────────────────────────────────── -->
-<section class="section" id="severity">
-  <div class="container">
-    <div class="sev-layout">
-      <div class="sev-gauge" data-reveal="scale">
-        <svg class="sev-svg" viewBox="0 0 120 120">
-          <!-- track -->
-          <circle cx="60" cy="60" r="48" fill="none"
-            stroke="#1a1a2e" stroke-width="7"
-            stroke-dasharray="226.2 75.4" stroke-linecap="round"
-            transform="rotate(-135 60 60)"/>
-          <!-- fill -->
-          <circle cx="60" cy="60" r="48" fill="none"
-            stroke="#ff3b3b" stroke-width="7"
-            id="sev-arc" stroke-dasharray="0 301.6" stroke-linecap="round"
-            transform="rotate(-135 60 60)"
-            style="filter:drop-shadow(0 0 8px rgba(255,59,59,.75)); transition:stroke-dasharray 1.3s cubic-bezier(.34,1.2,.64,1)"/>
-        </svg>
-        <div class="sev-num" id="sev-num">0</div>
-      </div>
-
+  <canvas id="neural"></canvas>
+  <div class="dataclip">NEMOTRON-49B · LLAMA-8B · STRUCTURED-OUTPUT · SSE-STREAM</div>
+  <div class="wrap">
+    <div class="hero-grid">
       <div>
-        <div class="section-label" data-reveal>Severity Score</div>
-        <h2 class="section-title" data-reveal data-delay="80" style="margin-bottom:20px;">Every incident<br>scored.</h2>
-        <p class="section-body" data-reveal data-delay="140" style="margin-bottom:0;">
-          NERVE assigns a 1–10 severity score based on three factors: blast radius across dependent services, cascade speed from trigger to first customer impact, and recoverability without manual intervention.
-        </p>
-        <div class="sev-factors" data-reveal data-delay="220">
-          <div class="sev-factor"><div class="sev-dot"></div>Blast radius</div>
-          <div class="sev-factor"><div class="sev-dot"></div>Cascade speed</div>
-          <div class="sev-factor"><div class="sev-dot"></div>Recoverability</div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── Demo scenarios ────────────────────────────────────────────────── -->
-<section class="section" id="scenarios">
-  <div class="container">
-    <div class="section-label" data-reveal>Demo Scenarios</div>
-    <h2 class="section-title" data-reveal data-delay="80">Real incidents. Real analysis.</h2>
-
-    <div class="cards-grid">
-      <!-- Scenario A -->
-      <div class="flip-card" data-reveal data-delay="0">
-        <div class="flip-inner">
-          <div class="flip-front">
-            <div class="card-head">
-              <div class="card-id">A</div>
-              <div class="sev-pill c9">SEV&nbsp;9</div>
-            </div>
-            <div class="card-title">Redis OOM → API 503 Cascade</div>
-            <div class="card-cause">Redis memory exhaustion at 97.5% triggers cache thrashing, connection pool exhaustion, and full API gateway failure across all regions within 90 seconds.</div>
-            <div class="card-hint">Hover to reveal fix steps</div>
-          </div>
-          <div class="flip-back">
-            <div class="fix-head">Remediation</div>
-            <ul class="fix-steps">
-              <li data-n="1.">Promote replica-2 as primary<code>redis-cli REPLICAOF NO ONE</code></li>
-              <li data-n="2.">Increase memory limit<code>CONFIG SET maxmemory 12gb</code></li>
-              <li data-n="3.">Switch eviction policy<code>CONFIG SET maxmemory-policy volatile-lru</code></li>
-              <li data-n="4.">Throttle cache warm-up to prevent DB storm</li>
-              <li data-n="5.">Set alert threshold at 75% memory utilisation</li>
-            </ul>
-          </div>
+        <div class="hero-badge"><span class="d"></span>SRE-grade · war-room intelligence</div>
+        <h1 class="hero-title">
+          <span class="l1" data-scramble>ROOT CAUSE,</span>
+          <span class="l2" data-scramble>FOUND.</span>
+        </h1>
+        <p class="hero-sub">Paste the logs. NERVE returns the <b>timeline</b>, the <b>ranked hypotheses</b>, a <b>severity score</b>, and the <b>fix</b> — while the incident is still hot.</p>
+        <div class="hero-cta">
+          <a class="btn" href="https://nerve-ql1v.onrender.com" target="_blank" rel="noopener">Launch NERVE ↗</a>
+          <a class="btn ghost" href="https://github.com/360NoScopeGuru/NERVE" target="_blank" rel="noopener">View Source</a>
         </div>
       </div>
 
-      <!-- Scenario B -->
-      <div class="flip-card" data-reveal data-delay="150">
-        <div class="flip-inner">
-          <div class="flip-front">
-            <div class="card-head">
-              <div class="card-id">B</div>
-              <div class="sev-pill c7">SEV&nbsp;7</div>
-            </div>
-            <div class="card-title">Bad Deploy → Payment Failures</div>
-            <div class="card-cause">Deployment of payments-api v2.4.2 silently reduced the DB connection pool from 50 to 5, exhausting connections under normal traffic load within seconds.</div>
-            <div class="card-hint">Hover to reveal fix steps</div>
-          </div>
-          <div class="flip-back">
-            <div class="fix-head">Remediation</div>
-            <ul class="fix-steps">
-              <li data-n="1.">Immediate rollback<code>kubectl rollout undo deploy/payments-api</code></li>
-              <li data-n="2.">Identify misconfigured env var in v2.4.2 diff</li>
-              <li data-n="3.">Release v2.4.3 with pool config restored to 50</li>
-              <li data-n="4.">Add pool alert: trigger at 80% utilisation</li>
-              <li data-n="5.">Add config diff check to CI deployment pipeline</li>
-            </ul>
-          </div>
+      <!-- incident cinematic -->
+      <div class="cine panel tick" id="cine">
+        <div class="cine-bar">
+          <span class="dots"><i></i><i></i><i></i></span>
+          incident-feed.log
+          <span class="st" id="cine-st">● STREAMING</span>
         </div>
-      </div>
-
-      <!-- Scenario C -->
-      <div class="flip-card" data-reveal data-delay="300">
-        <div class="flip-inner">
-          <div class="flip-front">
-            <div class="card-head">
-              <div class="card-id">C</div>
-              <div class="sev-pill c6">SEV&nbsp;6</div>
+        <div class="cine-body">
+          <!-- stage: logs -->
+          <div class="cine-stage on" id="stage-logs"><div id="cine-logs"></div></div>
+          <!-- stage: engage -->
+          <div class="cine-stage" id="stage-engage">
+            <div class="engage">
+              <div class="sweep"></div>
+              <div class="et">NERVE ENGAGED</div>
+              <div class="sweep"></div>
             </div>
-            <div class="card-title">Kafka Lag → Order Backlog</div>
-            <div class="card-cause">Kafka consumer group offset reset after broker restart left 2.4 M messages unprocessed, causing order fulfilment SLA breaches and cascading customer-facing delays.</div>
-            <div class="card-hint">Hover to reveal fix steps</div>
           </div>
-          <div class="flip-back">
-            <div class="fix-head">Remediation</div>
-            <ul class="fix-steps">
-              <li data-n="1.">Scale consumer group<code>kubectl scale deploy/order-consumer --replicas=12</code></li>
-              <li data-n="2.">Monitor lag<code>kafka-consumer-groups.sh --describe --group orders</code></li>
-              <li data-n="3.">Replay dead-letter messages selectively</li>
-              <li data-n="4.">Set lag alert at 50 K messages</li>
-              <li data-n="5.">Test broker restart with consumer offset retention</li>
-            </ul>
+          <!-- stage: analysis -->
+          <div class="cine-stage" id="stage-an">
+            <div class="an">
+              <div class="an-row">
+                <div class="lbl">Timeline</div>
+                <div class="tl" id="an-tl">
+                  <span class="dt r" data-i="0"></span><span class="seg" data-s="0"></span>
+                  <span class="dt" data-i="1"></span><span class="seg" data-s="1"></span>
+                  <span class="dt" data-i="2"></span><span class="seg" data-s="2"></span>
+                  <span class="dt" data-i="3"></span>
+                </div>
+              </div>
+              <div class="an-row">
+                <div class="lbl">Ranked Hypotheses</div>
+                <div class="hyp high" data-h="0"><span class="bars"><i></i><i></i><i></i></span><span class="txt">Redis maxmemory → key eviction</span><span class="tag">HIGH</span></div>
+                <div class="hyp med" data-h="1"><span class="bars"><i></i><i></i><i></i></span><span class="txt">Connection pool starvation</span><span class="tag">MED</span></div>
+                <div class="hyp low" data-h="2"><span class="bars"><i></i><i></i><i></i></span><span class="txt">Upstream DNS flap</span><span class="tag">LOW</span></div>
+              </div>
+              <div class="an-foot">
+                <div class="sev">
+                  <svg viewBox="0 0 60 60"><circle class="track" cx="30" cy="30" r="24" stroke-dasharray="113 999"/><circle class="arc" id="an-arc" cx="30" cy="30" r="24"/></svg>
+                  <div><div class="snum" id="an-sev">0</div><div class="slab">Severity</div></div>
+                </div>
+                <div class="fix" id="an-fix">
+                  <div class="fl" data-f="0"><span class="k">1.</span> redis-cli CONFIG SET maxmemory-policy allkeys-lru</div>
+                  <div class="fl" data-f="1"><span class="k">2.</span> kubectl scale deploy/cache --replicas=6</div>
+                  <div class="fl" data-f="2"><span class="k">3.</span> raise pool max_connections 5 → 50</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -754,242 +443,460 @@ nav.solid {
   </div>
 </section>
 
-<!-- ── Built with ────────────────────────────────────────────────────── -->
-<section class="section" id="built">
-  <div class="container" style="text-align:center;">
-    <div class="section-label" data-reveal>Built With</div>
-    <div class="tech-row" data-reveal data-delay="80">
-      <div class="tech-tile">
-        <span class="tech-name t-nvidia">NVIDIA NIM</span>
-        <span class="tech-sub">Nemotron 49B<br>Llama 3.1 8B</span>
-      </div>
-      <div class="tech-tile">
-        <span class="tech-name t-clerk">Clerk</span>
-        <span class="tech-sub">Auth &amp;<br>multitenancy</span>
-      </div>
-      <div class="tech-tile">
-        <span class="tech-name t-render">Render</span>
-        <span class="tech-sub">Docker<br>deployment</span>
-      </div>
-      <div class="tech-tile">
-        <span class="tech-name t-react">React 18</span>
-        <span class="tech-sub">Frontend<br>framework</span>
-      </div>
-      <div class="tech-tile">
-        <span class="tech-name t-vite">Vite 6</span>
-        <span class="tech-sub">Build<br>tooling</span>
-      </div>
-      <div class="tech-tile">
-        <span class="tech-name t-prisma">Prisma</span>
-        <span class="tech-sub">PostgreSQL<br>ORM</span>
-      </div>
-    </div>
+<!-- ══ MARQUEE ══ -->
+<div class="marquee" aria-hidden="true">
+  <div class="track" id="marquee">
+    <span>TIMELINE<span class="x"> · </span>HYPOTHESES<span class="x"> · </span>SEVERITY<span class="x"> · </span>FIX STEPS<span class="x"> · </span>EVIDENCE<span class="x"> · </span></span>
+    <span>TIMELINE<span class="x"> · </span>HYPOTHESES<span class="x"> · </span>SEVERITY<span class="x"> · </span>FIX STEPS<span class="x"> · </span>EVIDENCE<span class="x"> · </span></span>
   </div>
-</section>
+</div>
 
-<!-- ── CTA footer ─────────────────────────────────────────────────────── -->
-<footer id="cta">
-  <div class="container">
-    <h2 class="cta-title" data-reveal>Stop hunting logs.<br>Start fixing.</h2>
-    <a href="https://nerve-ql1v.onrender.com" target="_blank" rel="noopener"
-       class="btn-hero" data-reveal data-delay="100" style="animation:none;opacity:0;">
-      Launch App &rarr;
-    </a>
-    <div class="cta-links" data-reveal data-delay="200">
-      <a href="https://github.com/360NoScopeGuru/NERVE" target="_blank" rel="noopener">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.604-3.369-1.342-3.369-1.342-.454-1.154-1.11-1.461-1.11-1.461-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836a9.59 9.59 0 012.504.337c1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
-        github.com/360NoScopeGuru/NERVE
-      </a>
+<!-- ══ PROBLEM ══ -->
+<section id="problem"><div class="wrap">
+  <div class="prob-grid">
+    <div>
+      <div class="eyebrow" data-reveal>The Problem</div>
+      <h2 class="h-lg" data-reveal data-delay="60">Incidents don't<br>wait for you to<br><span class="r">read logs.</span></h2>
+      <p class="lead" data-reveal data-delay="140" style="margin-top:30px">When production breaks, the answer is buried in ten thousand lines across five dashboards. The clock is the enemy. NERVE collapses the hunt into a single structured answer.</p>
     </div>
-    <div class="cta-fine" data-reveal data-delay="300">Open source &nbsp;·&nbsp; MIT licensed &nbsp;·&nbsp; Deployed on Render</div>
+    <div class="stats" data-reveal="x" data-delay="120">
+      <div class="stat"><div class="n red" data-count="73" data-suffix="%">0%</div><div class="c">of MTTR is spent<br>locating the cause</div></div>
+      <div class="stat"><div class="n cy" data-count="5" data-suffix="+">0</div><div class="c">tools juggled in a<br>typical war room</div></div>
+      <div class="stat"><div class="n" data-count="10000" data-suffix="+" data-comma="1">0</div><div class="c">log lines per<br>major incident</div></div>
+      <div class="stat"><div class="n red" data-count="47" data-suffix="s">0s</div><div class="c">NERVE median<br>time to answer</div></div>
+    </div>
   </div>
-</footer>
+</div></section>
+
+<!-- ══ PIPELINE ══ -->
+<section id="pipeline"><div class="wrap">
+  <div class="eyebrow" data-reveal>The Pipeline</div>
+  <h2 class="h-lg" data-reveal data-delay="60">Three models.<br>One <span class="o">answer.</span></h2>
+  <div class="pipe">
+    <div class="stage" data-reveal data-delay="0">
+      <div class="no">01</div><span class="arrow">→</span>
+      <h3>Primary Analysis</h3>
+      <div class="model">nvidia/nemotron-super-49b</div>
+      <p>The full-power reasoning model reads the raw stream and drafts the timeline, hypotheses, and remediation in a single pass.</p>
+    </div>
+    <div class="stage" data-reveal data-delay="90">
+      <div class="no">02</div><span class="arrow">→</span>
+      <h3>Resilient Fallback</h3>
+      <div class="model">meta/llama-3.1-8b-instruct</div>
+      <p>On timeout or a weak signal, NERVE automatically fails over to a faster model — so an answer always lands.</p>
+    </div>
+    <div class="stage" data-reveal data-delay="180">
+      <div class="no">03</div>
+      <h3>Structured Output</h3>
+      <div class="model">json formatter pass</div>
+      <p>A final formatting pass guarantees valid, typed JSON every time — timeline, ranked hypotheses, severity, fix steps.</p>
+    </div>
+  </div>
+</div></section>
+
+<!-- ══ OUTPUT DISSECTED ══ -->
+<section id="output"><div class="wrap">
+  <div class="eyebrow" data-reveal>The Output</div>
+  <h2 class="h-lg" data-reveal data-delay="60">Not a wall of text.<br>A <span class="r">verdict.</span></h2>
+  <div class="out-grid">
+    <div class="out-card c-tl" data-reveal>
+      <div class="ic">01 — Timeline</div>
+      <h4>The incident, in order.</h4>
+      <p>Every meaningful event reconstructed chronologically — so you see the cascade, not the chaos.</p>
+      <div class="mtl">
+        <span class="d r"></span><span class="s" style="--md:120ms"></span>
+        <span class="d" style="--md:240ms"></span><span class="s" style="--md:360ms"></span>
+        <span class="d" style="--md:480ms"></span><span class="s" style="--md:600ms"></span>
+        <span class="d" style="--md:720ms"></span>
+      </div>
+    </div>
+    <div class="out-card c-sev" data-reveal data-delay="80">
+      <div class="ic">02 — Severity</div>
+      <h4>Scored, 1–10.</h4>
+      <div class="gauge">
+        <svg viewBox="0 0 80 80"><circle class="tk" cx="40" cy="40" r="32" stroke-dasharray="151 999"/><circle class="ar" id="out-arc" cx="40" cy="40" r="32"/></svg>
+        <div><div class="gn" id="out-sev">0</div><div class="gx">blast radius<br>quantified</div></div>
+      </div>
+    </div>
+    <div class="out-card c-hyp" data-reveal>
+      <div class="ic">03 — Hypotheses</div>
+      <h4>Ranked by signal.</h4>
+      <div class="mhyp">
+        <div class="mh high"><span class="bars"><i></i><i></i><i></i></span><span class="mt">Redis OOM cascade</span><span class="tg">HIGH</span></div>
+        <div class="mh med"><span class="bars"><i></i><i></i><i></i></span><span class="mt">Pool starvation</span><span class="tg">MED</span></div>
+        <div class="mh low"><span class="bars"><i></i><i></i><i></i></span><span class="mt">DNS flap</span><span class="tg">LOW</span></div>
+      </div>
+    </div>
+    <div class="out-card c-fix" data-reveal data-delay="80">
+      <div class="ic">04 — Fix Steps</div>
+      <h4>Calibrated to hypothesis #1.</h4>
+      <p>Concrete, copy-pasteable commands — not vague advice.</p>
+      <div class="mfix">
+        <div class="row"><span class="n">1.</span><span>redis-cli CONFIG SET maxmemory-policy allkeys-lru</span><span class="copy">copy</span></div>
+        <div class="row"><span class="n">2.</span><span>kubectl scale deploy/cache --replicas=6</span><span class="copy">copy</span></div>
+        <div class="row"><span class="n">3.</span><span>raise pool.max_connections 5 → 50</span><span class="copy">copy</span></div>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+<!-- ══ FEATURES BENTO ══ -->
+<section id="features"><div class="wrap">
+  <div class="eyebrow" data-reveal>Power Features</div>
+  <h2 class="h-lg" data-reveal data-delay="60">Built for the<br><span class="o">whole</span> incident.</h2>
+  <div class="bento">
+    <div class="cell tall" data-reveal id="kbtile">
+      <div class="cn">Keyboard-driven</div>
+      <div class="num">⌘</div>
+      <h4>Move at war-room speed.</h4>
+      <p>Try it — press a key:</p>
+      <div class="keys">
+        <kbd data-k="H">H</kbd><kbd data-k="N">N</kbd><kbd data-k="1">1</kbd><kbd data-k="2">2</kbd><kbd data-k="3">3</kbd><kbd data-k="R">R</kbd>
+      </div>
+      <div class="keyout" id="keyout">— awaiting keypress —</div>
+    </div>
+    <div class="cell wide" data-reveal data-delay="60">
+      <div class="cn">Share</div><div class="num">01</div>
+      <h4>Public, read-only links.</h4>
+      <p>Generate a revocable share link for any analysis. Teammates open it instantly — no account, no login. Perfect for the post-incident review.</p>
+    </div>
+    <div class="cell norm" data-reveal>
+      <div class="cn">Copy</div><div class="num">02</div>
+      <h4>One-click commands.</h4>
+      <p>Every fix step copies to your clipboard in a tap.</p>
+    </div>
+    <div class="cell norm" data-reveal data-delay="60">
+      <div class="cn">Export</div><div class="num">03</div>
+      <h4>Markdown & PDF.</h4>
+      <p>Download a formatted incident report or print to PDF.</p>
+    </div>
+    <div class="cell norm" data-reveal data-delay="120">
+      <div class="cn">History</div><div class="num">04</div>
+      <h4>Search & filter.</h4>
+      <p>Live search plus LOW / MED / HIGH severity filters.</p>
+    </div>
+    <div class="cell norm" data-reveal>
+      <div class="cn">Notes</div><div class="num">05</div>
+      <h4>Post-incident notes.</h4>
+      <p>Pin follow-ups to any analysis — auto-saved.</p>
+    </div>
+    <div class="cell wide" data-reveal data-delay="60">
+      <div class="cn">Learning loop</div><div class="num">06</div>
+      <h4>Confirm the root cause.</h4>
+      <p>After resolution, mark which hypothesis was right. A ✓ CONFIRMED badge sticks to the card and flags the analysis in your history — turning every incident into a record of what actually happened.</p>
+    </div>
+  </div>
+</div></section>
+
+<!-- ══ SCENARIOS ══ -->
+<section id="scenarios"><div class="wrap">
+  <div class="eyebrow" data-reveal>Demo Scenarios</div>
+  <h2 class="h-lg" data-reveal data-delay="60">Real incidents.<br>Real <span class="r">analysis.</span></h2>
+  <div class="scn">
+    <div class="scard" data-reveal>
+      <div class="tag">Scenario A</div>
+      <h4>Redis OOM <span class="a">→</span> API 503s</h4>
+      <p>Memory exhaustion triggers key eviction, connection-pool starvation, and a cascade into Postgres.</p>
+      <div class="meta"><span>SEV <b>9</b></span><span>3 HYPOTHESES</span></div>
+    </div>
+    <div class="scard" data-reveal data-delay="80">
+      <div class="tag">Scenario B</div>
+      <h4>Bad Deploy <span class="a">→</span> Payments</h4>
+      <p>A config regression caps the pool at 5 connections — payment failures cascade until rollback.</p>
+      <div class="meta"><span>SEV <b>8</b></span><span>3 HYPOTHESES</span></div>
+    </div>
+    <div class="scard" data-reveal data-delay="160">
+      <div class="tag">Scenario C</div>
+      <h4>CDN Degrade <span class="a">→</span> Frontend</h4>
+      <p>Edge latency and packet loss break asset fetches, surfacing as JS parse errors in the browser.</p>
+      <div class="meta"><span>SEV <b>6</b></span><span>3 HYPOTHESES</span></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- ══ STACK ══ -->
+<section id="stack"><div class="wrap">
+  <div class="eyebrow" data-reveal>Built With</div>
+  <h2 class="h-lg" data-reveal data-delay="60">No magic.<br>Just good parts.</h2>
+  <div class="stack-list" data-reveal data-delay="120">
+    <div class="stk">React<small>+ Vite 6</small></div>
+    <div class="stk">Tailwind<small>CSS tokens</small></div>
+    <div class="stk">Express<small>Node 20 · SSE</small></div>
+    <div class="stk">Prisma<small>PostgreSQL</small></div>
+    <div class="stk">Clerk<small>Auth</small></div>
+    <div class="stk">NVIDIA<small>NIM · Nemotron</small></div>
+  </div>
+</div></section>
+
+<!-- ══ CTA ══ -->
+<section id="cta">
+  <div class="glow"></div>
+  <div class="wrap">
+    <h2 class="cta-title" data-reveal>Stop hunting logs.<br><span class="r">Start fixing.</span></h2>
+    <p class="cta-sub" data-reveal data-delay="80">Open NERVE, paste a scenario, and watch the root cause surface in seconds.</p>
+    <div class="cta-cta" data-reveal data-delay="140">
+      <a class="btn" href="https://nerve-ql1v.onrender.com" target="_blank" rel="noopener">Launch NERVE ↗</a>
+      <a class="btn ghost" href="https://github.com/360NoScopeGuru/NERVE" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </div>
+  <footer><div class="wrap"><div class="foot">
+    <div>NERVE · Incident Root Cause Analyzer</div>
+    <div class="fl">
+      <a href="https://nerve-ql1v.onrender.com" target="_blank" rel="noopener">Live App</a>
+      <a href="https://github.com/360NoScopeGuru/NERVE" target="_blank" rel="noopener">GitHub</a>
+      <a href="#hero">Top ↑</a>
+    </div>
+  </div></div></footer>
+</section>
 
 <script>
-/* ── Log line data ──────────────────────────────────────────────────── */
-const LOGS_A = [
-  '2026-05-24T03:41:02Z [redis-primary]   WARN  Memory usage: 7.8GB/8.0GB (97.5%)',
-  '2026-05-24T03:41:15Z [api-gateway-3]   WARN  Redis GET latency p99=2340ms (threshold: 500ms)',
-  '2026-05-24T03:41:23Z [api-gateway-1]   ERROR Redis pool: 48/50 connections blocked (timeout=3000ms)',
-  '2026-05-24T03:41:25Z [session-svc]     ERROR REDIS_TIMEOUT after 3001ms key=sess:u:8823941',
-  '2026-05-24T03:41:26Z [api-gateway-1]   ERROR Upstream timeout: session-svc 504 after 3100ms',
-  '2026-05-24T03:41:27Z [api-gateway-2]   ERROR HTTP 503 Service Unavailable — threshold exceeded (>80%)',
-  '2026-05-24T03:41:28Z [load-balancer]   WARN  Health check FAILED: api-gateway-1 /healthz returned 503',
-  '2026-05-24T03:41:29Z [pagerduty]       CRIT  P1 INCIDENT TRIGGERED: API 503 rate >50% all regions',
-  '2026-05-24T03:41:31Z [redis-primary]   ERROR Out of memory: process terminated by OOM killer',
-  '2026-05-24T03:41:32Z [redis-sentinel]  WARN  redis-primary DOWN — initiating failover',
-  '2026-05-24T03:41:34Z [redis-replica-2] INFO  Replication complete — now serving as primary',
-  '2026-05-24T03:41:35Z [api-gateway-1]   INFO  Redis reconnected to replica-2:6379 — pool recovering',
-  '2026-05-24T03:41:42Z [cache-warmer]    WARN  Cold cache: hit rate 2.1% (was 94.3%)',
-  '2026-05-24T03:42:01Z [postgres]        ERROR too many connections: 498/500',
-  '2026-05-24T03:42:03Z [api-gateway-1]   ERROR PG_CONN_REFUSED — secondary cascade failure',
-  '2026-05-24T03:11:02Z [deploy-service]  INFO  Deploy: payments-api v2.4.1→v2.4.2 by ci-bot',
-  '2026-05-24T03:11:16Z [payments-api]    WARN  Config loaded: db.pool.max_connections=5 (was 50)',
-  '2026-05-24T03:11:23Z [payments-api]    WARN  DB connection pool near limit: 4/5 active',
-  '2026-05-24T03:11:25Z [payments-api]    ERROR DB pool exhausted: timeout after 3002ms',
-  '2026-05-24T03:11:25Z [payments-api]    ERROR Payment failed: unable to acquire connection [txn=8821a]',
-  '2026-05-24T03:11:27Z [postgres]        WARN  Idle connections: 0 — all slots occupied',
-  '2026-05-24T05:14:33Z [kafka-broker-2]  WARN  Consumer group lag: 2.4M messages (orders)',
-  '2026-05-24T05:14:45Z [order-svc]       ERROR Processing backlog exceeded SLA: 3200ms avg',
-  '2026-05-24T05:15:02Z [order-svc]       ERROR Dead letter queue: 18 142 events pending',
-  '2026-05-24T05:15:14Z [pagerduty]       CRIT  P2 ORDER SLA BREACH — fulfilment delayed >5min',
-]
+'use strict';
+const RM = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const TOUCH = window.matchMedia('(hover: none)').matches;
+const $ = (s,c=document)=>c.querySelector(s);
+const $$ = (s,c=document)=>[...c.querySelectorAll(s)];
 
-const LOGS_B = [
-  '2026-05-24T04:22:01Z [cert-manager]    WARN  TLS certificate expires in 24h: api.prod.internal',
-  '2026-05-24T04:23:15Z [auth-service]    ERROR TLS handshake failed: certificate expired',
-  '2026-05-24T04:23:18Z [api-gateway-2]   ERROR auth-service: connection refused',
-  '2026-05-24T04:23:22Z [api-gateway-1]   ERROR 401 Unauthorized — all authenticated endpoints',
-  '2026-05-24T06:08:11Z [k8s-scheduler]   WARN  Node nerve-worker-3 NotReady (disk pressure)',
-  '2026-05-24T06:08:22Z [kubelet]         ERROR Evicting pods from nerve-worker-3: disk 94% used',
-  '2026-05-24T06:08:35Z [inference-svc]   WARN  Replica count: 3/6 (3 evicted, rescheduling)',
-  '2026-05-24T06:09:01Z [inference-svc]   ERROR Request timeout: model not warmed — cold start 28s',
-  '2026-05-24T06:09:12Z [api-gateway-1]   ERROR Upstream timeout: inference-svc 504 after 30s',
-  '2026-05-24T07:31:44Z [prometheus]      WARN  Target api-gateway-2 scrape failed: refused',
-  '2026-05-24T07:31:55Z [alertmanager]    CRIT  SLO burn: error rate 4.2% (budget: 0.1%)',
-  '2026-05-24T07:32:01Z [pagerduty]       CRIT  P1 SLO BURN — 28x error budget rate',
-  '2026-05-24T08:14:02Z [postgres]        WARN  Autovacuum: relation orders bloat 42%',
-  '2026-05-24T08:14:33Z [postgres]        WARN  Sequential scan on orders (8.2M rows) — missing index',
-  '2026-05-24T08:15:01Z [payments-api]    WARN  Query timeout p95=4200ms (threshold: 500ms)',
-  '2026-05-24T09:02:18Z [nginx-ingress]   WARN  upstream timed out (110) while reading response',
-  '2026-05-24T09:02:22Z [nginx-ingress]   ERROR no live upstreams while connecting to upstream',
-  '2026-05-24T09:02:28Z [load-balancer]   CRIT  All upstreams unhealthy — returning 502',
-  '2026-05-24T10:44:01Z [redis-replica-2] WARN  Replication lag 8400ms — primary unreachable',
-  '2026-05-24T10:44:15Z [redis-sentinel]  WARN  Quorum check failed: 1/2 sentinels reachable',
-  '2026-05-24T11:22:33Z [deploy-service]  INFO  Rollback initiated: payments-api → v2.4.1',
-  '2026-05-24T11:22:45Z [payments-api]    INFO  Service restarted — pool.max_connections=50 restored',
-  '2026-05-24T11:22:51Z [payments-api]    INFO  Health check OK — accepting traffic',
-  '2026-05-24T11:23:02Z [pagerduty]       INFO  P1 resolved — all services nominal',
-  '2026-05-24T11:23:15Z [nerve]           INFO  Root cause identified in 47s — MTTR saved: 22min',
-]
-
-function buildLogCol(id, lines) {
-  const el = document.getElementById(id)
-  if (!el) return
-  const all = [...lines, ...lines] // duplicate for seamless loop
-  el.innerHTML = all.map(l => `<div>${l}</div>`).join('')
-}
-buildLogCol('log-a', LOGS_A)
-buildLogCol('log-b', LOGS_B)
-
-/* ── Custom cursor ──────────────────────────────────────────────────── */
-const cursor = document.getElementById('cursor')
-let mx = 0, my = 0
-if (!('ontouchstart' in window)) {
-  document.addEventListener('mousemove', e => {
-    mx = e.clientX; my = e.clientY
-    cursor.style.transform = `translate(${mx}px, ${my}px) translate(-50%, -50%)`
-  })
-  document.addEventListener('mouseleave', () => { cursor.style.opacity = '0' })
-  document.addEventListener('mouseenter', () => { cursor.style.opacity = '1' })
-} else {
-  cursor.style.display = 'none'
-  document.body.style.cursor = 'auto'
+/* ── custom cursor ── */
+if(!TOUCH && !RM){
+  const cur = $('#cursor'); let cx=innerWidth/2, cy=innerHeight/2, tx=cx, ty=cy;
+  addEventListener('mousemove',e=>{tx=e.clientX;ty=e.clientY});
+  (function loop(){cx+=(tx-cx)*.28;cy+=(ty-cy)*.28;cur.style.transform=`translate(${tx}px,${ty}px) translate(-50%,-50%)`;requestAnimationFrame(loop)})();
+  const hov='a,button,kbd,.scard,.cell,.stage,.stk';
+  document.addEventListener('mouseover',e=>{if(e.target.closest(hov))cur.classList.add('big')});
+  document.addEventListener('mouseout',e=>{if(e.target.closest(hov))cur.classList.remove('big')});
 }
 
-/* ── Nav on scroll ──────────────────────────────────────────────────── */
-const nav = document.getElementById('nav')
-window.addEventListener('scroll', () => {
-  nav.classList.toggle('solid', window.scrollY > 80)
-}, { passive: true })
+/* ── nav solid on scroll ── */
+const nav=$('#nav');
+addEventListener('scroll',()=>{nav.classList.toggle('solid',scrollY>40)},{passive:true});
 
-/* ── Hero parallax ──────────────────────────────────────────────────── */
-const heroBg = document.getElementById('log-bg')
-const heroContent = document.getElementById('hero-content')
-window.addEventListener('scroll', () => {
-  const y = window.scrollY
-  if (y < window.innerHeight) {
-    heroBg.style.transform = `translateY(${y * 0.22}px)`
-    heroContent.style.transform = `translateY(${y * 0.42}px)`
-    heroContent.style.opacity = 1 - y / (window.innerHeight * 0.75)
+/* ── reveal observer ── */
+const revIO=new IntersectionObserver((es)=>{es.forEach(e=>{
+  if(e.isIntersecting){const d=e.target.dataset.delay||0;e.target.style.setProperty('--d',d+'ms');e.target.classList.add('in');revIO.unobserve(e.target)}
+})},{threshold:.18});
+$$('[data-reveal]').forEach(el=>revIO.observe(el));
+
+/* ── scramble text ── */
+const GLYPH='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%&/<>*';
+function scramble(el){
+  const txt=el.dataset.final||el.textContent; el.dataset.final=txt;
+  if(RM){el.textContent=txt;return;}
+  let frame=0; const total=txt.length*3+14;
+  const tick=()=>{
+    let out='';
+    for(let i=0;i<txt.length;i++){
+      if(txt[i]===' '){out+=' ';continue;}
+      const settle=i*3;
+      out+= frame>settle ? txt[i] : GLYPH[(Math.random()*GLYPH.length)|0];
+    }
+    el.textContent=out; frame++;
+    if(frame<=total) requestAnimationFrame(tick); else el.textContent=txt;
+  };
+  tick();
+}
+const scrIO=new IntersectionObserver((es)=>{es.forEach(e=>{if(e.isIntersecting){scramble(e.target);scrIO.unobserve(e.target)}})},{threshold:.4});
+$$('[data-scramble]').forEach(el=>scrIO.observe(el));
+
+/* ── counters ── */
+function countUp(el){
+  const target=+el.dataset.count, suf=el.dataset.suffix||'', comma=el.dataset.comma;
+  if(RM){el.textContent=(comma?target.toLocaleString():target)+suf;return;}
+  const dur=1500, t0=performance.now();
+  const step=(t)=>{
+    const p=Math.min((t-t0)/dur,1), e=1-Math.pow(1-p,3), v=Math.round(target*e);
+    el.textContent=(comma?v.toLocaleString():v)+suf;
+    if(p<1)requestAnimationFrame(step);
+  };requestAnimationFrame(step);
+}
+const cntIO=new IntersectionObserver((es)=>{es.forEach(e=>{if(e.isIntersecting){countUp(e.target);cntIO.unobserve(e.target)}})},{threshold:.6});
+$$('[data-count]').forEach(el=>cntIO.observe(el));
+
+/* ── output severity arcs (animate when section reveals) ── */
+function arcTo(circleEl,numEl,r,score){
+  const circ=2*Math.PI*r, track=circ*0.75, fill=track*(score/10);
+  const setN=(v)=>{numEl.textContent=v;};
+  if(RM){circleEl.setAttribute('stroke-dasharray',`${fill} 999`);setN(score);return;}
+  requestAnimationFrame(()=>circleEl.setAttribute('stroke-dasharray',`${fill} 999`));
+  let t0=performance.now();const step=(t)=>{const p=Math.min((t-t0)/1100,1);setN(Math.round(score*(1-Math.pow(1-p,3))));if(p<1)requestAnimationFrame(step)};requestAnimationFrame(step);
+}
+const outCard=$('.c-sev'); const outArcIO=new IntersectionObserver((es)=>{es.forEach(e=>{
+  if(e.isIntersecting){arcTo($('#out-arc'),$('#out-sev'),32,9);outArcIO.unobserve(e.target)}
+})},{threshold:.5});
+if(outCard)outArcIO.observe(outCard);
+
+/* ── keyboard tile ── */
+const KB={H:'H → toggle history sidebar',N:'N → new analysis',1:'1 → timeline tab',2:'2 → hypotheses tab',3:'3 → fix-steps tab',R:'R → run analysis'};
+const keyout=$('#keyout');
+function hitKey(k){
+  const kbd=$(`.keys kbd[data-k="${k}"]`); if(!kbd)return;
+  kbd.classList.add('hit'); keyout.textContent=KB[k];
+  setTimeout(()=>kbd.classList.remove('hit'),320);
+}
+addEventListener('keydown',e=>{const k=e.key.toUpperCase();if(KB[k]&&!e.metaKey&&!e.ctrlKey){if(!/input|textarea/i.test(e.target.tagName))hitKey(k)}});
+$$('.keys kbd').forEach(kbd=>kbd.addEventListener('click',()=>hitKey(kbd.dataset.k)));
+
+/* ══════════════════════════════════════════════════════════════════════════
+   NEURAL CANVAS
+   ══════════════════════════════════════════════════════════════════════════ */
+(function neural(){
+  const canvas=$('#neural'); if(!canvas)return;
+  const hero=$('#hero'); const ctx=canvas.getContext('2d');
+  const dpr=Math.min(devicePixelRatio||1,2);
+  let W=0,H=0,nodes=[],edges=[],adj=[],pulses=[],mouse={x:-9999,y:-9999},running=true,raf=0;
+  const COUNT=()=> innerWidth<700?34:(innerWidth<1100?60:84);
+  const LINK=()=> innerWidth<700?150:130;
+
+  function build(){
+    W=canvas.width=hero.clientWidth*dpr; H=canvas.height=hero.clientHeight*dpr;
+    canvas.style.width=hero.clientWidth+'px'; canvas.style.height=hero.clientHeight+'px';
+    const n=COUNT(); nodes=[];
+    for(let i=0;i<n;i++){
+      const x=Math.random()*W, y=Math.random()*H;
+      nodes.push({x0:x,y0:y,x,y,ph:Math.random()*6.28,amp:(10+Math.random()*16)*dpr,sp:.4+Math.random()*.7,ex:0});
+    }
+    // fixed topology: nearest neighbours
+    edges=[]; adj=nodes.map(()=>[]);
+    const R=LINK()*dpr, R2=R*R;
+    for(let i=0;i<n;i++){
+      const cand=[];
+      for(let j=0;j<n;j++){if(i===j)continue;const dx=nodes[i].x0-nodes[j].x0,dy=nodes[i].y0-nodes[j].y0,d2=dx*dx+dy*dy;if(d2<R2)cand.push([d2,j]);}
+      cand.sort((a,b)=>a[0]-b[0]);
+      cand.slice(0,3).forEach(([,j])=>{
+        if(!adj[i].includes(j)){adj[i].push(j);adj[j].push(i);edges.push([i,j]);}
+      });
+    }
+    pulses=[];
   }
-}, { passive: true })
+  function spawnPulse(from){
+    if(pulses.length>26)return;
+    const a=adj[from]; if(!a||!a.length)return;
+    const to=a[(Math.random()*a.length)|0];
+    pulses.push({from,to,t:0,sp:.012+Math.random()*.02,life:5});
+  }
+  let t=0;
+  function frame(){
+    if(!running)return;
+    t+=0.016; ctx.clearRect(0,0,W,H);
+    // update node positions (bounded oscillation around base)
+    for(const nd of nodes){
+      nd.x=nd.x0+Math.sin(t*nd.sp+nd.ph)*nd.amp;
+      nd.y=nd.y0+Math.cos(t*nd.sp*0.9+nd.ph)*nd.amp;
+      // cursor excitation
+      const dx=nd.x-mouse.x, dy=nd.y-mouse.y, d=Math.hypot(dx,dy);
+      const ER=170*dpr;
+      nd.ex=d<ER?Math.max(nd.ex,1-d/ER):nd.ex*0.92;
+    }
+    // edges
+    for(const [i,j] of edges){
+      const a=nodes[i],b=nodes[j];
+      const ex=Math.max(a.ex,b.ex);
+      const al=0.05+ex*0.4;
+      ctx.strokeStyle=ex>.25?`rgba(0,212,255,${al})`:`rgba(120,130,170,${al})`;
+      ctx.lineWidth=(ex>.25?1.1:0.7)*dpr;
+      ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+    }
+    // pulses
+    for(let p=pulses.length-1;p>=0;p--){
+      const pu=pulses[p], a=nodes[pu.from], b=nodes[pu.to];
+      pu.t+=pu.sp;
+      const x=a.x+(b.x-a.x)*pu.t, y=a.y+(b.y-a.y)*pu.t;
+      ctx.beginPath();ctx.arc(x,y,2.4*dpr,0,6.283);
+      ctx.fillStyle='rgba(255,42,42,.95)';ctx.shadowColor='rgba(255,42,42,.9)';ctx.shadowBlur=10*dpr;ctx.fill();ctx.shadowBlur=0;
+      if(pu.t>=1){
+        pu.life--;
+        if(pu.life>0){const na=adj[pu.to];const nx=na[(Math.random()*na.length)|0];if(nx!==undefined&&nx!==pu.from){pu.from=pu.to;pu.to=nx;pu.t=0;}else pulses.splice(p,1);}
+        else pulses.splice(p,1);
+      }
+    }
+    // nodes
+    for(const nd of nodes){
+      const r=(1.5+nd.ex*2.2)*dpr;
+      ctx.beginPath();ctx.arc(nd.x,nd.y,r,0,6.283);
+      if(nd.ex>.3){ctx.fillStyle=`rgba(0,212,255,${.5+nd.ex*.5})`;ctx.shadowColor='rgba(0,212,255,.8)';ctx.shadowBlur=8*dpr;}
+      else{ctx.fillStyle='rgba(150,160,200,.5)';ctx.shadowBlur=0;}
+      ctx.fill();ctx.shadowBlur=0;
+    }
+    raf=requestAnimationFrame(frame);
+  }
+  function drawStatic(){ // reduced-motion single frame
+    ctx.clearRect(0,0,W,H);
+    for(const [i,j] of edges){const a=nodes[i],b=nodes[j];ctx.strokeStyle='rgba(120,130,170,.08)';ctx.lineWidth=.7*dpr;ctx.beginPath();ctx.moveTo(a.x0,a.y0);ctx.lineTo(b.x0,b.y0);ctx.stroke();}
+    for(const nd of nodes){ctx.beginPath();ctx.arc(nd.x0,nd.y0,1.6*dpr,0,6.283);ctx.fillStyle='rgba(150,160,200,.45)';ctx.fill();}
+  }
+  build();
+  if(RM){drawStatic();}
+  else{
+    addEventListener('mousemove',e=>{const r=canvas.getBoundingClientRect();mouse.x=(e.clientX-r.left)*dpr;mouse.y=(e.clientY-r.top)*dpr;});
+    addEventListener('mouseleave',()=>{mouse.x=mouse.y=-9999});
+    setInterval(()=>{if(running)spawnPulse((Math.random()*nodes.length)|0)},520);
+    frame();
+    // pause when hero off-screen
+    new IntersectionObserver(es=>{es.forEach(e=>{running=e.isIntersecting;if(running&&!RM){cancelAnimationFrame(raf);frame();}})},{threshold:0}).observe(hero);
+  }
+  let rz; addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{build();if(RM)drawStatic();},220)});
+})();
 
-/* ── Hero letter assembly ───────────────────────────────────────────── */
-;(function assembleTitle() {
-  const el = document.getElementById('hero-title')
-  const word = 'NERVE'
-  el.innerHTML = word.split('').map((ch, i) =>
-    `<span class="hero-letter" style="transition-delay:${i * 60}ms">${ch}</span>`
-  ).join('')
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    el.querySelectorAll('.hero-letter').forEach(s => s.classList.add('in'))
-  }))
-})()
+/* ══════════════════════════════════════════════════════════════════════════
+   INCIDENT CINEMATIC
+   ══════════════════════════════════════════════════════════════════════════ */
+(function cinematic(){
+  const logsEl=$('#cine-logs'), st=$('#cine-st');
+  const stLogs=$('#stage-logs'), stEng=$('#stage-engage'), stAn=$('#stage-an');
+  if(!logsEl)return;
+  const LOGS=[
+    ['t','02:14:03 ','i','redis.cache  used_memory 3.9G / maxmemory 4.0G'],
+    ['t','02:14:05 ','w','WARN  redis  maxmemory reached — evicting keys'],
+    ['t','02:14:07 ','w','WARN  redis  evicted 4,201 keys (allkeys-lru)'],
+    ['t','02:14:09 ','e','ERROR api   upstream cache MISS rate 96%'],
+    ['t','02:14:10 ','e','ERROR api   pool exhausted — 0/5 conns free'],
+    ['t','02:14:12 ','e','ERROR api   503 Service Unavailable ×1,840'],
+    ['t','02:14:14 ','e','FATAL pg    too many clients already'],
+  ];
+  const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
+  const show=(el)=>{[stLogs,stEng,stAn].forEach(s=>s.classList.remove('on'));el.classList.add('on')};
 
-/* ── Flip cards: click on touch ─────────────────────────────────────── */
-if (window.matchMedia('(hover: none)').matches) {
-  document.querySelectorAll('.flip-card').forEach(card => {
-    card.addEventListener('click', () => card.classList.toggle('flipped'))
-  })
-}
+  function buildLogs(){logsEl.innerHTML=LOGS.map(([c1,t1,c2,t2])=>`<div class="ln"><span class="${c1}">${t1}</span><span class="${c2}">${t2}</span></div>`).join('')}
 
-/* ── Counter animation ──────────────────────────────────────────────── */
-function runCounter(el, target, suffix, duration) {
-  const start = performance.now()
-  ;(function tick(now) {
-    const p = Math.min((now - start) / duration, 1)
-    const e = 1 - Math.pow(1 - p, 3)
-    el.textContent = Math.round(e * target) + suffix
-    if (p < 1) requestAnimationFrame(tick)
-  })(start)
-}
-
-/* ── Severity gauge ─────────────────────────────────────────────────── */
-let sevDone = false
-function runSeverity() {
-  if (sevDone) return
-  sevDone = true
-  const numEl = document.getElementById('sev-num')
-  const arc   = document.getElementById('sev-arc')
-  const total = 226.2  // 75% of circumference (270° arc)
-  const circ  = 301.6
-  const target = 9
-  const filled = (target / 10) * total
-  const start = performance.now()
-  const dur   = 1500
-  ;(function tick(now) {
-    const p = Math.min((now - start) / dur, 1)
-    const e = 1 - Math.pow(1 - p, 3)
-    numEl.textContent = Math.round(e * target)
-    arc.style.strokeDasharray = `${e * filled} ${circ - e * filled}`
-    if (p < 1) requestAnimationFrame(tick)
-  })(start)
-}
-
-/* ── IntersectionObserver ───────────────────────────────────────────── */
-const io = new IntersectionObserver(entries => {
-  entries.forEach(entry => {
-    if (!entry.isIntersecting) return
-    const el = entry.target
-
-    el.classList.add('in')
-
-    /* counter cards */
-    if (el.id === 'c1') runCounter(el, 23, ' MIN',  1600)
-    if (el.id === 'c2') runCounter(el, 60, '%',     1800)
-    if (el.id === 'c3') runCounter(el,  5, ' TOOLS', 1400)
-
-    /* severity */
-    if (el.closest('#severity')) runSeverity()
-
-    /* signal dots — fill with stagger */
-    el.querySelectorAll('[data-di]').forEach(dot => {
-      const delay = parseInt(dot.dataset.di) * 130
-      setTimeout(() => dot.classList.add('on'), delay)
-    })
-
-    io.unobserve(el)
-  })
-}, { threshold: 0.22 })
-
-document.querySelectorAll('[data-reveal]').forEach(el => {
-  if (el.dataset.delay) el.style.setProperty('--d', el.dataset.delay + 'ms')
-  io.observe(el)
-})
-
-/* Also observe stat cards and sev gauge directly */
-document.querySelectorAll('.stat-card, .sev-gauge').forEach(el => io.observe(el))
+  async function run(){
+    while(true){
+      // PHASE 1 — logs stream
+      show(stLogs); buildLogs(); st.textContent='● STREAMING'; st.style.color='var(--green)';
+      const lns=$$('#cine-logs .ln');
+      for(const ln of lns){ln.classList.add('show');await sleep(560);}
+      await sleep(700);
+      // PHASE 2 — engage
+      st.textContent='● ANALYZING'; st.style.color='var(--cyan)'; show(stEng); await sleep(1300);
+      // PHASE 3 — analysis assembles
+      show(stAn); st.textContent='● RESOLVED'; st.style.color='var(--red)';
+      // timeline
+      const dots=$$('#an-tl .dt'), segs=$$('#an-tl .seg');
+      for(let i=0;i<dots.length;i++){dots[i].classList.add('on');if(segs[i])segs[i].classList.add('on');await sleep(220);}
+      await sleep(150);
+      // hypotheses
+      for(const h of $$('#stage-an .hyp')){h.classList.add('on');await sleep(260);}
+      await sleep(150);
+      // severity arc + count
+      const arc=$('#an-arc'), sev=$('#an-sev'), circ=2*Math.PI*24, fill=circ*0.75*0.9;
+      arc.setAttribute('stroke-dasharray',`${fill} 999`);
+      let s=0;const iv=setInterval(()=>{s++;sev.textContent=s;if(s>=9)clearInterval(iv)},70);
+      // fix steps type-in
+      for(const f of $$('#an-fix .fl')){f.classList.add('on');await sleep(360);}
+      // hold
+      await sleep(3600);
+      if(RM)return; // one pass only
+      // reset
+      stAn.style.transition='opacity .6s';
+      dots.forEach(d=>d.classList.remove('on'));segs.forEach(s=>s.classList.remove('on'));
+      $$('#stage-an .hyp').forEach(h=>h.classList.remove('on'));
+      $$('#an-fix .fl').forEach(f=>f.classList.remove('on'));
+      arc.setAttribute('stroke-dasharray','0 999');sev.textContent='0';
+      await sleep(400);
+    }
+  }
+  // start when hero visible
+  let started=false;
+  new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting&&!started){started=true;run();}})},{threshold:.3}).observe($('#cine'));
+})();
 </script>
 </body>
 </html>
