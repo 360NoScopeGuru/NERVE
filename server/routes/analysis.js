@@ -145,6 +145,13 @@ router.patch('/history/:id/confirm', requireAuth(), async (req, res) => {
   const { index } = req.body
   if (!Number.isInteger(index) || index < 0) return res.status(400).json({ error: 'invalid index' })
   try {
+    const entry = await prisma.analysis.findFirst({
+      where: { id: req.params.id, userId },
+      select: { result: true },
+    })
+    if (!entry) return res.status(404).json({ error: 'Not found' })
+    const count = Array.isArray(entry.result?.hypotheses) ? entry.result.hypotheses.length : 0
+    if (index >= count) return res.status(400).json({ error: 'index out of range' })
     await prisma.analysis.updateMany({
       where: { id: req.params.id, userId },
       data: { confirmedHypothesisIndex: index },

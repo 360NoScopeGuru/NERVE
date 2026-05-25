@@ -13,11 +13,162 @@ import { validateLogs } from './utils/logValidator'
 import { exportMarkdown } from './utils/exportMarkdown'
 
 export default function App() {
+  const shareToken = new URLSearchParams(window.location.search).get('share')
+  if (shareToken) return <SharedView token={shareToken} />
   return (
     <>
       <SignedOut><SignInScreen /></SignedOut>
       <SignedIn><Analyzer /></SignedIn>
     </>
+  )
+}
+
+/* ── Shared (public, read-only) view ──────────────────────────────────────── */
+function SharedView({ token }) {
+  const [state, setState] = useState('loading') // loading | ready | missing
+  const [data, setData] = useState(null)
+  const [activeTab, setActiveTab] = useState('timeline')
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = 'dark'
+    fetch(`/api/share/${token}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) { setState('missing'); return }
+        setData(d)
+        setState('ready')
+        if (d.name) document.title = `NERVE — ${d.name}`
+      })
+      .catch(() => setState('missing'))
+  }, [token])
+
+  const result = data?.result
+  const confirmedIdx = data?.confirmedHypothesisIndex
+
+  return (
+    <div className="min-h-[100dvh] bg-nerve-bg text-nerve-text flex flex-col">
+      {/* Header */}
+      <header className="flex-shrink-0 px-4 py-2.5 flex items-center justify-between"
+        style={{
+          background: 'linear-gradient(180deg, rgb(var(--c-panel-raised)) 0%, rgb(var(--c-panel)) 100%)',
+          boxShadow: '0 1px 0 rgb(var(--c-border))',
+        }}>
+        <div className="flex items-center gap-3">
+          <NerveLogo size="sm" />
+          <div className="w-px h-5 bg-nerve-border hidden sm:block" />
+          <span className="text-[8px] font-display font-bold px-1.5 py-0.5 rounded tracking-wider"
+            style={{ color: 'rgb(var(--c-accent))', background: 'rgb(var(--c-accent) / 0.1)', border: '1px solid rgb(var(--c-accent) / 0.25)' }}>
+            SHARED VIEW · READ ONLY
+          </span>
+        </div>
+        <a href={window.location.origin}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-nerve-border hover:border-nerve-accent/40 text-nerve-textDim hover:text-nerve-accent text-[10px] font-display font-semibold tracking-wider transition-all duration-200 hover:bg-nerve-accent/5">
+          LAUNCH NERVE
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+          </svg>
+        </a>
+      </header>
+
+      <div className="flex-1 overflow-y-auto">
+        {state === 'loading' && (
+          <div className="h-[70vh] flex flex-col items-center justify-center gap-4">
+            <div className="w-10 h-10 rounded-full border-2 border-nerve-border border-t-nerve-accent animate-spin" />
+            <p className="text-[11px] font-mono text-nerve-muted">Loading shared analysis…</p>
+          </div>
+        )}
+
+        {state === 'missing' && (
+          <div className="h-[70vh] flex flex-col items-center justify-center gap-4 px-6 text-center">
+            <div className="w-12 h-12 rounded-full bg-nerve-danger/10 border border-nerve-danger/30 flex items-center justify-center">
+              <svg className="w-5 h-5 text-nerve-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-display font-semibold tracking-widest text-nerve-textDim">NOT AVAILABLE</p>
+              <p className="text-[11px] font-mono text-nerve-muted mt-1.5">This analysis is no longer shared or the link is invalid.</p>
+            </div>
+            <a href={window.location.origin}
+              className="mt-2 px-4 py-2 rounded border border-nerve-accent/30 text-nerve-accent text-[10px] font-display font-bold tracking-wider hover:bg-nerve-accent/10 transition-colors">
+              GO TO NERVE
+            </a>
+          </div>
+        )}
+
+        {state === 'ready' && result && (
+          <>
+            {/* Tab switcher */}
+            <div className="px-5 py-2.5 flex items-center justify-end gap-1 sticky top-0 z-10"
+              style={{ borderBottom: '1px solid rgb(var(--c-border))', background: 'rgb(var(--c-bg))' }}>
+              {[
+                { id: 'timeline',   label: 'TIMELINE',   count: result.timeline?.length },
+                { id: 'hypotheses', label: 'HYPOTHESES', count: result.hypotheses?.length },
+                { id: 'fix',        label: 'FIX STEPS',  count: result.fixSteps?.length },
+              ].map(({ id, label, count }) => (
+                <button
+                  key={id}
+                  onClick={() => setActiveTab(id)}
+                  className={`px-3 py-1 text-[10px] font-display font-semibold tracking-wider rounded transition-all duration-200 ${
+                    activeTab === id
+                      ? 'bg-nerve-accent/15 text-nerve-accent border border-nerve-accent/30'
+                      : 'text-nerve-muted hover:text-nerve-textDim border border-transparent hover:border-nerve-border'
+                  }`}
+                >
+                  {label}
+                  {count > 0 && <span className="ml-1.5 opacity-60 font-mono text-[9px]">{count}</span>}
+                </button>
+              ))}
+            </div>
+
+            <div className="max-w-3xl mx-auto p-5 space-y-4 animate-fade-in">
+              <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
+                <div className="rounded-lg p-4 border-gradient-raised" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.12)' }}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-1 h-4 rounded-full bg-nerve-accent" style={{ boxShadow: '0 0 8px rgba(0,212,255,0.5)' }} />
+                    <span className="text-[10px] font-display font-semibold tracking-[0.25em] text-nerve-accent/80">SUMMARY</span>
+                  </div>
+                  <p className="text-sm font-mono text-nerve-text leading-relaxed">{result.summary}</p>
+                </div>
+                {result.severityScore && <SeverityGauge score={result.severityScore} reason={result.severityReason} />}
+              </div>
+
+              {activeTab === 'timeline' && result.timeline?.length > 0 && (
+                <div className="animate-spring-in">
+                  <SectionHeader title="INCIDENT TIMELINE" count={result.timeline.length} unit="events" />
+                  <TimelineView entries={result.timeline} />
+                </div>
+              )}
+              {activeTab === 'hypotheses' && result.hypotheses?.length > 0 && (
+                <div className="space-y-3 animate-spring-in">
+                  <SectionHeader title="ROOT CAUSE HYPOTHESES" count={result.hypotheses.length} unit="ranked" />
+                  {result.hypotheses.map((h, i) => (
+                    <HypothesisCard key={i} hypothesis={h} index={i} confirmed={i === confirmedIdx} />
+                  ))}
+                </div>
+              )}
+              {activeTab === 'fix' && result.fixSteps?.length > 0 && (
+                <div className="animate-spring-in">
+                  <SectionHeader title="REMEDIATION STEPS" subtitle="Calibrated to Hypothesis #1" count={result.fixSteps.length} unit="steps" />
+                  <FixSteps steps={result.fixSteps} />
+                </div>
+              )}
+
+              {data.notes && (
+                <div className="rounded-lg p-3" style={{ background: 'rgb(var(--c-panel))', border: '1px solid rgb(var(--c-border))' }}>
+                  <span className="text-[9px] font-display font-semibold tracking-[0.2em] text-nerve-mutedBright">NOTES</span>
+                  <p className="text-[11px] font-mono text-nerve-textDim leading-relaxed whitespace-pre-wrap mt-2">{data.notes}</p>
+                </div>
+              )}
+
+              <p className="text-[9px] font-mono text-nerve-muted text-center pt-2">
+                Shared via NERVE · {new Date(data.createdAt).toLocaleDateString()}
+              </p>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -210,7 +361,6 @@ function Analyzer() {
   const [showShareModal, setShowShareModal] = useState(false)
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [notesOpen, setNotesOpen] = useState(false)
-  const [isSharedView, setIsSharedView] = useState(false)
   const notesSaveTimer = useRef(null)
   const [notesSaved, setNotesSaved] = useState(false)
 
@@ -243,25 +393,6 @@ function Analyzer() {
     const name = result.hypotheses?.[0]?.title || result.summary?.split(' ').slice(0, 7).join(' ') || 'Analysis'
     document.title = `NERVE — ${name.length > 60 ? name.slice(0, 57).trimEnd() + '…' : name}`
   }, [result])
-
-  // ── Shared view — load from ?share=TOKEN on mount ─────────────────────────
-  useEffect(() => {
-    const token = new URLSearchParams(window.location.search).get('share')
-    if (!token) return
-    setIsSharedView(true)
-    fetch(`/api/share/${token}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (!data) return
-        setResult(data.result)
-        setResultName(data.name)
-        setAnalysisId(data.id)
-        setNotes(data.notes || '')
-        setConfirmedHypothesisIndex(data.confirmedHypothesisIndex ?? null)
-        setActiveTab('timeline')
-        if (data.name) document.title = `NERVE — ${data.name}`
-      })
-  }, [])
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
@@ -304,7 +435,6 @@ function Analyzer() {
     setFromCache(false)
     setAnalysisStatus('')
     setNotesOpen(false)
-    setIsSharedView(false)
   }
 
   const handleLightModeToggle = () => {
@@ -368,7 +498,6 @@ function Analyzer() {
     if (logData) setLogs(logData)
     setActiveScenario(scenarioId || null)
     setNotesOpen(false)
-    setIsSharedView(false)
     if (window.innerWidth < 640) {
       setMobileTab('output')
       setSidebarOpen(false)
@@ -380,7 +509,7 @@ function Analyzer() {
   return (
     <div
       ref={rootRef}
-      className="h-[100dvh] bg-nerve-bg text-nerve-text flex flex-col overflow-hidden"
+      className="h-[100dvh] bg-nerve-bg text-nerve-text flex flex-col overflow-hidden print-root"
       style={{ '--mx': 0.5, '--my': 0.5 }}
       onMouseMove={handleMouseMove}
     >
@@ -401,13 +530,13 @@ function Analyzer() {
       )}
 
       {/* Cursor spotlight */}
-      <div className="fixed inset-0 pointer-events-none z-10" style={{
+      <div className="fixed inset-0 pointer-events-none z-10 no-print" style={{
         background: 'radial-gradient(600px circle at calc(var(--mx, 0.5) * 100vw) calc(var(--my, 0.5) * 100vh), rgba(0,212,255,0.04) 0%, transparent 60%)',
       }} />
 
       {/* Loading sweep bar */}
       {isLoading && (
-        <div className="fixed top-0 left-0 right-0 h-[2px] z-50 overflow-hidden">
+        <div className="fixed top-0 left-0 right-0 h-[2px] z-50 overflow-hidden no-print">
           <div className="h-full w-1/3 animate-sweep" style={{
             background: 'linear-gradient(90deg, transparent, rgb(var(--c-accent)), rgb(var(--c-phosphor)), transparent)',
           }} />
@@ -416,7 +545,7 @@ function Analyzer() {
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header
-        className="flex-shrink-0 px-4 py-2.5 flex items-center justify-between relative z-20"
+        className="flex-shrink-0 px-4 py-2.5 flex items-center justify-between relative z-20 no-print"
         style={{
           background: 'linear-gradient(180deg, rgb(var(--c-panel-raised)) 0%, rgb(var(--c-panel)) 100%)',
           boxShadow: isLoading
@@ -495,18 +624,20 @@ function Analyzer() {
       </header>
 
       {/* ── Body ───────────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex overflow-hidden relative z-10">
-        <HistorySidebar
-          isOpen={sidebarOpen}
-          onLoadResult={handleLoadFromHistory}
-          refreshKey={historyKey}
-          isMobile={isMobile}
-          onClose={() => setSidebarOpen(false)}
-        />
+      <div className="flex-1 flex overflow-hidden relative z-10 print-result">
+        <div className="contents no-print">
+          <HistorySidebar
+            isOpen={sidebarOpen}
+            onLoadResult={handleLoadFromHistory}
+            refreshKey={historyKey}
+            isMobile={isMobile}
+            onClose={() => setSidebarOpen(false)}
+          />
+        </div>
 
         {/* Left — Input */}
         <div
-          className={`flex-col overflow-hidden ${isSharedView ? 'hidden' : ''} ${isMobile ? (mobileTab === 'input' ? 'flex flex-1' : 'hidden') : 'flex flex-shrink-0'}`}
+          className={`flex-col overflow-hidden no-print ${isMobile ? (mobileTab === 'input' ? 'flex flex-1' : 'hidden') : 'flex flex-shrink-0'}`}
           style={isMobile ? undefined : {
             width: sidebarOpen ? '40%' : '46%',
             transition: 'width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
@@ -528,22 +659,16 @@ function Analyzer() {
         </div>
 
         {/* Right — Output */}
-        <div className={`flex-col overflow-hidden ${isMobile ? (mobileTab === 'output' ? 'flex flex-1' : 'hidden') : 'flex flex-1'}`}>
-          <div className="flex-shrink-0 px-5 py-2.5 flex items-center justify-between gap-2"
+        <div className={`flex-col overflow-hidden print-result ${isMobile ? (mobileTab === 'output' ? 'flex flex-1' : 'hidden') : 'flex flex-1'}`}>
+          <div className="flex-shrink-0 px-5 py-2.5 flex items-center justify-between gap-2 no-print"
             style={{ borderBottom: '1px solid rgb(var(--c-border))' }}>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-display font-semibold tracking-[0.25em] text-nerve-mutedBright">
                 ANALYSIS OUTPUT
               </span>
-              {isSharedView && (
-                <span className="text-[8px] font-display font-bold px-1.5 py-0.5 rounded tracking-wider"
-                  style={{ color: 'rgb(var(--c-accent))', background: 'rgb(var(--c-accent) / 0.1)', border: '1px solid rgb(var(--c-accent) / 0.25)' }}>
-                  SHARED VIEW
-                </span>
-              )}
             </div>
             <div className="flex items-center gap-1">
-              {hasResult && !isSharedView && analysisId && (
+              {hasResult && analysisId && (
                 <>
                   {/* Notes toggle */}
                   <button
@@ -622,7 +747,7 @@ function Analyzer() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto print-result-scroll">
             {!isLoading && !result && !error && <EmptyState />}
             {isLoading && <LoadingState status={analysisStatus} />}
 
@@ -673,14 +798,12 @@ function Analyzer() {
                     {result.hypotheses.map((h, i) => (
                       <HypothesisCard key={i} hypothesis={h} index={i} confirmed={i === confirmedHypothesisIndex} />
                     ))}
-                    {!isSharedView && (
-                      <HypothesisFeedback
-                        hypotheses={result.hypotheses}
-                        analysisId={analysisId}
-                        confirmedIndex={confirmedHypothesisIndex}
-                        onConfirm={(idx) => setConfirmedHypothesisIndex(idx)}
-                      />
-                    )}
+                    <HypothesisFeedback
+                      hypotheses={result.hypotheses}
+                      analysisId={analysisId}
+                      confirmedIndex={confirmedHypothesisIndex}
+                      onConfirm={(idx) => setConfirmedHypothesisIndex(idx)}
+                    />
                   </div>
                 )}
                 {activeTab === 'fix' && result.fixSteps?.length > 0 && (
@@ -720,7 +843,7 @@ function Analyzer() {
       </div>
 
       {/* Mobile tab bar */}
-      <div className="sm:hidden flex-shrink-0 flex" style={{ borderTop: '1px solid rgb(var(--c-border))', background: 'rgb(var(--c-panel))' }}>
+      <div className="sm:hidden flex-shrink-0 flex no-print" style={{ borderTop: '1px solid rgb(var(--c-border))', background: 'rgb(var(--c-panel))' }}>
         <button
           onClick={() => setMobileTab('input')}
           className={`flex-1 py-3 text-[11px] font-display font-semibold tracking-wider flex items-center justify-center gap-2 transition-colors ${

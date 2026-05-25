@@ -61,6 +61,15 @@ All results are persisted per-user in PostgreSQL and retrievable from a collapsi
 - **Intro splash** — animated logo that flies up into the header on first load (session-cached)
 - **Magnetic run button** — cursor-tracking physics on hover
 
+### Workflow & Collaboration
+- **One-click copy** — copy any remediation command straight to the clipboard from the fix-steps panel
+- **History search & filter** — live text search plus LOW / MED / HIGH severity filter chips in the sidebar
+- **Keyboard shortcuts** — `H` history · `N` new · `1`/`2`/`3` tabs · `R` run (hints shown on the empty state)
+- **Post-incident notes** — free-text notes attached to any saved analysis, debounced auto-save
+- **Export** — download a formatted Markdown incident report or Print / Save as PDF (print stylesheet)
+- **Hypothesis feedback** — mark the confirmed root cause after resolution; a ✓ CONFIRMED badge persists on the card and a green marker appears in history
+- **Shareable links** — generate a public, no-auth read-only link for any analysis (revocable)
+
 ---
 
 ## Architecture
@@ -81,10 +90,15 @@ All results are persisted per-user in PostgreSQL and retrievable from a collapsi
 ┌──────────────────▼──────────────────────────────▼──────────┐
 │                    Express Server (Node 20)                  │
 │                                                             │
-│   POST /api/analyze  ──►  analyzeLog()  ──►  SSE stream    │
-│   GET  /api/history                                         │
-│   GET  /api/history/:id                                     │
+│   POST   /api/analyze  ──►  analyzeLog()  ──►  SSE stream  │
+│   GET    /api/history                                       │
+│   GET    /api/history/:id                                   │
 │   DELETE /api/history/:id                                   │
+│   PATCH  /api/history/:id/notes                             │
+│   PATCH  /api/history/:id/confirm                           │
+│   POST   /api/history/:id/share                             │
+│   DELETE /api/history/:id/share                             │
+│   GET    /api/share/:token   (public, no auth)              │
 │                    │                                        │
 │             Prisma ORM                                      │
 └────────────────────┼────────────────────────────────────────┘
@@ -239,13 +253,15 @@ Returns the 50 most recent analyses for the authenticated user, ordered newest-f
 ```json
 [
   {
-    "id":            "cuid",
-    "scenarioId":    "A | B | null",
-    "inputSnippet":  "first 200 chars of log input",
-    "summary":       "string",
-    "severityScore": 8,
-    "fromCache":     false,
-    "createdAt":     "ISO 8601"
+    "id":                       "cuid",
+    "scenarioId":               "A | B | null",
+    "inputSnippet":             "first 200 chars of log input",
+    "name":                     "string",
+    "summary":                  "string",
+    "severityScore":            8,
+    "fromCache":                false,
+    "confirmedHypothesisIndex": null,
+    "createdAt":                "ISO 8601"
   }
 ]
 ```
@@ -268,20 +284,63 @@ Permanently deletes the analysis. Scoped to the authenticated user — cannot de
 
 ---
 
+### `PATCH /api/history/:id/notes`
+
+Saves free-text post-incident notes on an analysis (scoped to the authenticated user).
+
+**Request** `{ "notes": "string" }` · **Response** `200 OK` `{ "ok": true }`
+
+---
+
+### `PATCH /api/history/:id/confirm`
+
+Records which hypothesis was the confirmed root cause. The index is validated against the stored hypotheses length.
+
+**Request** `{ "index": 0 }` · **Response** `200 OK` `{ "ok": true }` · `400` if the index is out of range.
+
+---
+
+### `POST /api/history/:id/share`
+
+Enables public sharing — generates a `shareToken` (if absent) and sets `isPublic`.
+
+**Response** `200 OK` `{ "shareToken": "string" }`
+
+### `DELETE /api/history/:id/share`
+
+Revokes sharing — clears `shareToken` and unsets `isPublic`.
+
+**Response** `200 OK` `{ "ok": true }`
+
+---
+
+### `GET /api/share/:token`  *(public — no auth)*
+
+Mounted **before** the Clerk middleware. Returns a trimmed, read-only projection of a publicly shared analysis (no `userId`, no `logData`). Powers the standalone `?share=TOKEN` view.
+
+**Response** `200 OK` — `{ id, name, summary, result, severityScore, notes, confirmedHypothesisIndex, createdAt }`, or `404` if not found / sharing disabled.
+
+---
+
 ## Data Model
 
 ```prisma
 model Analysis {
-  id            String   @id @default(cuid())
-  userId        String                          // Clerk user ID
-  scenarioId    String?                         // "A", "B", etc. — null for custom input
-  inputSnippet  String                          // First 200 chars, shown in sidebar
-  logData       String?                         // Full input — restored on history load
-  summary       String                          // One-line root cause
-  severityScore Int?                            // 1–10, null if formatter failed
-  result        Json                            // Full AnalysisResult blob
-  fromCache     Boolean  @default(false)
-  createdAt     DateTime @default(now())
+  id                       String   @id @default(cuid())
+  userId                   String                  // Clerk user ID
+  scenarioId               String?                 // "A", "B", etc. — null for custom input
+  inputSnippet             String                  // First 200 chars, shown in sidebar
+  logData                  String?                 // Full input — restored on history load
+  name                     String?                 // Auto-derived short title (hypothesis #1)
+  summary                  String                  // One-line root cause
+  severityScore            Int?                    // 1–10, null if formatter failed
+  result                   Json                    // Full AnalysisResult blob
+  fromCache                Boolean  @default(false)
+  notes                    String?  @db.Text       // Post-incident notes
+  isPublic                 Boolean  @default(false) // Public share toggle
+  shareToken               String?  @unique         // Public share link token
+  confirmedHypothesisIndex Int?                    // Confirmed root-cause index
+  createdAt                DateTime @default(now())
 
   @@index([userId, createdAt(sort: Desc)])
 }
@@ -461,6 +520,19 @@ Timestamp patterns matched (any one required):
 
 Error signal keywords (case-insensitive, any one required):
 `ERROR` · `WARN` · `WARNING` · `timeout` · `failed` · `exception` · `fatal` · `critical` · `panic` · `killed` · `503` · `500` · `refused`
+
+---
+
+## Keyboard Shortcuts
+
+Active anywhere except while typing in a text field:
+
+| Key | Action |
+|---|---|
+| `H` | Toggle the history sidebar |
+| `N` | Start a new analysis (clear input & output) |
+| `1` / `2` / `3` | Switch to Timeline / Hypotheses / Fix Steps |
+| `R` | Run analysis (when logs are present and no result is loaded) |
 
 ---
 

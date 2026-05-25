@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '@clerk/clerk-react'
 
@@ -47,7 +47,6 @@ export default function HistorySidebar({ isOpen, onLoadResult, refreshKey, isMob
   const [loadingId, setLoadingId] = useState(null)
   const [query, setQuery] = useState('')
   const [sevFilter, setSevFilter] = useState(new Set())
-  const searchRef = useRef(null)
 
   useEffect(() => {
     if (!isOpen) return
@@ -148,7 +147,6 @@ export default function HistorySidebar({ isOpen, onLoadResult, refreshKey, isMob
       {entries.length > 0 && (
         <div className="flex-shrink-0 px-2 pt-2 pb-1.5 space-y-1.5" style={{ borderBottom: '1px solid rgb(var(--c-border))' }}>
           <input
-            ref={searchRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Search…"
