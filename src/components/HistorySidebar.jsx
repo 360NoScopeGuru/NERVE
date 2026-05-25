@@ -81,14 +81,14 @@ export default function HistorySidebar({ isOpen, onLoadResult, refreshKey, isMob
     <>
       {/* Header */}
       <div className="flex-shrink-0 px-3 py-2.5 flex items-center justify-between"
-        style={{ borderBottom: '1px solid #141428' }}>
+        style={{ borderBottom: '1px solid rgb(var(--c-border))' }}>
         <span className="text-[9px] font-display font-semibold tracking-[0.3em] text-nerve-mutedBright uppercase">
           History
         </span>
         <div className="flex items-center gap-2">
           {entries.length > 0 && (
             <span className="text-[9px] font-mono px-1.5 py-0.5 rounded"
-              style={{ background: 'rgba(30,30,64,0.8)', color: '#4a4a70', border: '1px solid #1e1e40' }}>
+              style={{ background: 'rgb(var(--c-panel-raised))', color: 'rgb(var(--c-muted))', border: '1px solid rgb(var(--c-border))' }}>
               {entries.length}
             </span>
           )}
@@ -108,7 +108,7 @@ export default function HistorySidebar({ isOpen, onLoadResult, refreshKey, isMob
       </div>
 
       {/* Entries */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" style={{ background: 'rgb(var(--c-bg))' }}>
         {entries.length === 0 && !loading && (
           <div className="p-4 text-center mt-6">
             <div className="text-[9px] font-mono text-nerve-muted">No analyses yet</div>
@@ -143,8 +143,8 @@ export default function HistorySidebar({ isOpen, onLoadResult, refreshKey, isMob
           className="fixed inset-y-0 left-0 z-[9001] flex flex-col animate-slide-in-left"
           style={{
             width: 'min(85vw, 320px)',
-            background: '#06060f',
-            borderRight: '1px solid #141428',
+            background: 'rgb(var(--c-bg))',
+            borderRight: '1px solid rgb(var(--c-border))',
             boxShadow: '8px 0 32px rgba(0,0,0,0.6)',
           }}
         >
@@ -162,8 +162,8 @@ export default function HistorySidebar({ isOpen, onLoadResult, refreshKey, isMob
       style={{
         width: isOpen ? 220 : 0,
         transition: 'width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
-        borderRight: isOpen ? '1px solid #141428' : 'none',
-        background: '#06060f',
+        borderRight: isOpen ? '1px solid rgb(var(--c-border))' : 'none',
+        background: 'rgb(var(--c-bg))',
       }}
     >
       {isOpen && content}
@@ -181,8 +181,8 @@ function HistoryEntry({ entry, index, isLoading, onLoad, onDelete }) {
       className="w-full text-left relative overflow-hidden transition-all duration-150 animate-spring-in"
       style={{
         animationDelay: `${index * 40}ms`,
-        borderBottom: '1px solid rgba(20,20,40,0.8)',
-        background: hovered ? 'rgba(13,13,34,0.9)' : 'transparent',
+        borderBottom: '1px solid rgb(var(--c-border))',
+        background: hovered ? 'rgb(var(--c-panel-raised))' : 'transparent',
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -230,7 +230,7 @@ function HistoryEntry({ entry, index, isLoading, onLoad, onDelete }) {
       {/* Loading overlay */}
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center"
-          style={{ background: 'rgba(6,6,15,0.85)' }}>
+          style={{ background: 'rgb(var(--c-bg) / 0.88)' }}>
           <div className="w-4 h-4 rounded-full border border-t-nerve-accent animate-spin" />
         </div>
       )}

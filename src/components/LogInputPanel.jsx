@@ -62,12 +62,12 @@ export default function LogInputPanel({ value, onChange, onAnalyze, isLoading, v
           dragOver ? 'ring-2 ring-nerve-accent/50' : ''
         }`}
         style={{
-          background: '#020209',
+          background: 'rgb(var(--c-bg))',
           border: dragOver
             ? '1px solid rgba(0,212,255,0.5)'
             : validationErrors.length > 0
             ? '1px solid rgba(239,68,68,0.4)'
-            : '1px solid #141428',
+            : '1px solid rgb(var(--c-border))',
           boxShadow: dragOver
             ? '0 0 30px rgba(0,212,255,0.12), inset 0 0 30px rgba(0,212,255,0.04)'
             : 'inset 0 2px 8px rgba(0,0,0,0.4)',
@@ -78,7 +78,7 @@ export default function LogInputPanel({ value, onChange, onAnalyze, isLoading, v
       >
         {/* Window chrome bar */}
         <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-nerve-border/60"
-          style={{ background: 'rgba(13,13,34,0.8)' }}>
+          style={{ background: 'rgb(var(--c-panel-raised))' }}>
           <div className="flex items-center gap-1.5">
             <div className="w-2.5 h-2.5 rounded-full bg-nerve-critical/70" style={{ boxShadow: '0 0 4px rgba(255,42,42,0.4)' }} />
             <div className="w-2.5 h-2.5 rounded-full bg-nerve-warn/70" style={{ boxShadow: '0 0 4px rgba(245,158,11,0.3)' }} />

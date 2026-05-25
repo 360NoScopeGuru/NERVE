@@ -58,8 +58,8 @@ function TimelineEntry({ entry, index, total }) {
             className="w-px flex-1 min-h-[20px] animate-spine-draw"
             style={{
               background: hovered
-                ? 'linear-gradient(to bottom, rgba(0,212,255,0.4), rgba(20,20,40,0.4))'
-                : 'linear-gradient(to bottom, #1e1e40, #141428)',
+                ? 'linear-gradient(to bottom, rgba(0,212,255,0.4), rgb(var(--c-border) / 0.4))'
+                : 'linear-gradient(to bottom, rgb(var(--c-border-bright)), rgb(var(--c-border)))',
               transition: 'background 0.2s',
               animationDelay: delay,
             }}
@@ -80,9 +80,9 @@ function TimelineEntry({ entry, index, total }) {
           <span
             className="inline-block text-[9px] font-mono px-1.5 py-0.5 rounded mb-1 leading-none"
             style={{
-              background: 'rgba(0,212,255,0.08)',
-              color: '#00d4ff',
-              border: '1px solid rgba(0,212,255,0.15)',
+              background: 'rgb(var(--c-accent) / 0.08)',
+              color: 'rgb(var(--c-accent))',
+              border: '1px solid rgb(var(--c-accent) / 0.2)',
             }}
           >
             {entry.time}

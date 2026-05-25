@@ -14,9 +14,9 @@ const STRENGTH_CONFIG = {
     glow: false,
   },
   LOW: {
-    filled: 1, color: '#4a4a70', label: 'LOW',
-    border: '1px solid #1e1e40',
-    badge: { bg: 'rgba(74,74,112,0.15)', color: '#7070a0', border: '#2e2e50' },
+    filled: 1, color: 'rgb(var(--c-muted))', label: 'LOW',
+    border: '1px solid rgb(var(--c-border-bright))',
+    badge: { bg: 'rgb(var(--c-panel-raised))', color: 'rgb(var(--c-muted-bright))', border: 'rgb(var(--c-border-bright))' },
     glow: false,
   },
 }
@@ -31,7 +31,7 @@ function SignalBars({ strength }) {
           className="w-[5px] rounded-sm transition-all duration-200"
           style={{
             height: `${n * 33}%`,
-            background: n <= cfg.filled ? cfg.color : '#2e2e50',
+            background: n <= cfg.filled ? cfg.color : 'rgb(var(--c-border-bright))',
             boxShadow: n <= cfg.filled && cfg.glow ? `0 0 6px ${cfg.color}` : 'none',
           }}
         />
@@ -51,7 +51,7 @@ export default function HypothesisCard({ hypothesis, index }) {
       style={{
         animationDelay: `${index * 120}ms`,
         border: cfg.border,
-        background: '#080818',
+        background: 'rgb(var(--c-panel))',
         boxShadow: hovered
           ? cfg.glow
             ? '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(255,42,42,0.08)'
@@ -78,7 +78,7 @@ export default function HypothesisCard({ hypothesis, index }) {
           >
             {/* Rank */}
             <div className="flex-shrink-0 w-6 h-6 rounded flex items-center justify-center mt-0.5"
-              style={{ background: 'rgba(30,30,64,0.8)', border: '1px solid #2e2e50' }}>
+              style={{ background: 'rgb(var(--c-panel-raised))', border: '1px solid rgb(var(--c-border-bright))' }}>
               <span className="text-[11px] font-display font-bold text-nerve-textDim">{index + 1}</span>
             </div>
 
@@ -108,7 +108,7 @@ export default function HypothesisCard({ hypothesis, index }) {
               {hypothesis.evidence.length > 0 && (
                 <button
                   className="mt-2 flex items-center gap-1.5 text-[10px] font-mono transition-colors duration-150"
-                  style={{ color: expanded ? '#00d4ff' : '#4a4a70' }}
+                  style={{ color: expanded ? 'rgb(var(--c-accent))' : 'rgb(var(--c-muted))' }}
                   onClick={(e) => { e.stopPropagation(); setExpanded(!expanded) }}
                 >
                   <svg
@@ -133,7 +133,7 @@ export default function HypothesisCard({ hypothesis, index }) {
             <div className="overflow-hidden">
               <div className="border-t border-nerve-border/40 mx-3 mb-3 mt-0 pt-2.5">
                 <div className="rounded-md overflow-hidden"
-                  style={{ background: '#010108', border: '1px solid #141428', borderLeft: `3px solid ${cfg.color}40` }}>
+                  style={{ background: 'rgb(var(--c-bg))', border: '1px solid rgb(var(--c-border))', borderLeft: `3px solid ${cfg.color}40` }}>
                   <div className="px-2.5 py-1.5 border-b border-nerve-border/30">
                     <span className="text-[9px] font-display font-semibold tracking-[0.2em] text-nerve-muted">
                       EVIDENCE LOG

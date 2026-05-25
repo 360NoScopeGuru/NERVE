@@ -53,11 +53,11 @@ function ScenarioCard({ scenario, active, onLoad }) {
       className="relative flex flex-col items-start px-3 py-2 rounded-lg text-left transition-all duration-150 select-none"
       style={{
         background: active
-          ? 'rgba(0,212,255,0.08)'
-          : hovering ? 'rgba(13,13,34,0.9)' : 'rgba(8,8,24,0.6)',
+          ? 'rgb(var(--c-accent) / 0.08)'
+          : hovering ? 'rgb(var(--c-panel-raised))' : 'rgb(var(--c-panel))',
         border: active
-          ? '1px solid rgba(0,212,255,0.4)'
-          : '1px solid #1e1e40',
+          ? '1px solid rgb(var(--c-accent) / 0.4)'
+          : '1px solid rgb(var(--c-border-bright))',
         boxShadow: active
           ? '0 0 20px rgba(0,212,255,0.15), inset 0 1px 0 rgba(0,212,255,0.1)'
           : hovering ? '0 8px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03)' : 'none',

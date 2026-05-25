@@ -7,7 +7,7 @@ export default function FixSteps({ steps }) {
     <div className="relative">
       {/* Connector line */}
       <div className="absolute left-[10px] top-3 bottom-3 w-px"
-        style={{ background: 'linear-gradient(to bottom, #1e1e40, transparent)' }} />
+        style={{ background: 'linear-gradient(to bottom, rgb(var(--c-border-bright)), transparent)' }} />
 
       <ol className="space-y-2 relative">
         {steps.map((step, i) => (
@@ -32,14 +32,14 @@ function FixStep({ step, index, total }) {
       <div
         className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center mt-0.5 transition-all duration-300 z-10"
         style={{
-          background: hovered ? 'rgba(0,229,160,0.2)' : 'rgba(30,30,64,0.8)',
-          border: hovered ? '1px solid rgba(0,229,160,0.6)' : '1px solid #2e2e50',
+          background: hovered ? 'rgba(0,229,160,0.2)' : 'rgb(var(--c-panel-raised))',
+          border: hovered ? '1px solid rgba(0,229,160,0.6)' : '1px solid rgb(var(--c-border-bright))',
           boxShadow: hovered ? '0 0 10px rgba(0,229,160,0.3)' : 'none',
         }}
       >
         <span
           className="text-[9px] font-display font-bold transition-colors duration-200"
-          style={{ color: hovered ? '#00e5a0' : '#7070a0' }}
+          style={{ color: hovered ? '#00e5a0' : 'rgb(var(--c-muted-bright))' }}
         >
           {index + 1}
         </span>
@@ -49,8 +49,8 @@ function FixStep({ step, index, total }) {
       <div
         className="flex-1 min-w-0 px-3 py-2 rounded-lg transition-all duration-200"
         style={{
-          background: hovered ? 'rgba(13,13,34,0.8)' : 'transparent',
-          border: hovered ? '1px solid #1e1e40' : '1px solid transparent',
+          background: hovered ? 'rgb(var(--c-panel-raised))' : 'transparent',
+          border: hovered ? '1px solid rgb(var(--c-border-bright))' : '1px solid transparent',
         }}
       >
         <StepContent text={step} />
@@ -69,9 +69,9 @@ function StepContent({ text }) {
             key={i}
             className="font-mono text-[11px] px-1.5 py-0.5 rounded mx-0.5"
             style={{
-              background: '#0a1a0a',
-              color: '#00e5a0',
-              border: '1px solid rgba(0,229,160,0.15)',
+              background: 'rgb(var(--c-bg))',
+              color: 'rgb(var(--c-success))',
+              border: '1px solid rgb(var(--c-success) / 0.2)',
             }}
           >
             {part.slice(1, -1)}

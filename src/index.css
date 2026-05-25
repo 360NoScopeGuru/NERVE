@@ -25,23 +25,23 @@
 }
 
 [data-theme="light"] {
-  --c-bg:           242 242 248;
-  --c-panel:        255 255 255;
-  --c-panel-raised: 248 248 252;
-  --c-border:       220 220 235;
-  --c-border-bright:190 190 215;
-  --c-accent:       0 122 204;
-  --c-accent-dim:   0 90 160;
-  --c-critical:     204 17 17;
-  --c-critical-dim: 170 0 0;
-  --c-warn:         180 110 0;
-  --c-danger:       200 30 30;
-  --c-success:      0 140 80;
-  --c-muted:        155 155 180;
-  --c-muted-bright: 110 110 145;
-  --c-text:         22 22 44;
-  --c-text-dim:     70 70 105;
-  --c-phosphor:     0 140 80;
+  --c-bg:           238 238 248;
+  --c-panel:        252 252 255;
+  --c-panel-raised: 244 244 252;
+  --c-border:       210 210 228;
+  --c-border-bright:175 175 205;
+  --c-accent:       0 112 200;
+  --c-accent-dim:   0 80 156;
+  --c-critical:     196 22 22;
+  --c-critical-dim: 155 0 0;
+  --c-warn:         168 105 0;
+  --c-danger:       196 28 28;
+  --c-success:      0 132 74;
+  --c-muted:        145 145 175;
+  --c-muted-bright: 95 95 135;
+  --c-text:         18 18 40;
+  --c-text-dim:     62 62 98;
+  --c-phosphor:     0 132 74;
 }
 
 /* ── Base ─────────────────────────────────────────────────────────────────── */
@@ -65,7 +65,7 @@
     transition: background-color 0.4s ease, color 0.3s ease;
   }
 
-  /* Grain texture — dark mode only */
+  /* Grain texture */
   body::before {
     content: '';
     position: fixed;
@@ -77,9 +77,9 @@
     background-size: 180px 180px;
     transition: opacity 0.4s;
   }
-  [data-theme="light"] body::before { opacity: 0.012; }
+  [data-theme="light"] body::before { opacity: 0.018; }
 
-  /* Scanline overlay — dark mode only */
+  /* Scanline overlay */
   body::after {
     content: '';
     position: fixed;
@@ -90,12 +90,12 @@
       to bottom,
       transparent,
       transparent 2px,
-      rgba(0, 0, 0, 0.022) 2px,
-      rgba(0, 0, 0, 0.022) 4px
+      rgba(0, 0, 0, 0.018) 2px,
+      rgba(0, 0, 0, 0.018) 4px
     );
     transition: opacity 0.4s;
   }
-  [data-theme="light"] body::after { opacity: 0.3; }
+  [data-theme="light"] body::after { opacity: 0.5; }
 
   /* Scrollbar */
   ::-webkit-scrollbar { width: 4px; height: 4px; }

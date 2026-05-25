@@ -501,7 +501,7 @@ function Analyzer() {
               <div className="p-5 space-y-4 animate-fade-in">
                 <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
                   <div className="rounded-lg p-4 border-gradient-raised"
-                    style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.03)' }}>
+                    style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.12)' }}>
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-1 h-4 rounded-full bg-nerve-accent" style={{ boxShadow: '0 0 8px rgba(0,212,255,0.5)' }} />
                       <span className="text-[10px] font-display font-semibold tracking-[0.25em] text-nerve-accent/80">SUMMARY</span>
