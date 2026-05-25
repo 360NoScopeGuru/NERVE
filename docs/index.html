@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NERVE — Incident Root Cause Analyzer</title>
+  <meta name="description" content="AI-powered incident root cause analysis for SRE teams. Three-model AI pipeline delivers timeline, ranked hypotheses, and fix steps in under 60 seconds.">
+  <meta property="og:title" content="NERVE — Root Cause Analysis in 47 Seconds">
+  <meta property="og:description" content="AI-powered incident analysis for SRE teams. Nemotron 49B primary · Llama 8B fallback · Structured output every time.">
+  <meta property="og:url" content="https://360noscopeguru.github.io/NERVE">
+  <meta property="og:type" content="website">
+  <link rel="canonical" href="https://360noscopeguru.github.io/NERVE">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2304040e'/%3E%3Crect x='4' y='4' width='24' height='24' rx='3.5' fill='%23ff2a2a' opacity='.65'/%3E%3Crect x='9' y='9' width='14' height='14' rx='2' fill='%2304040e'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* ── Reset & base ──────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: #080810;
+  color: #e8e8f0;
+  font-family: 'DM Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  cursor: none;
+}
+a { color: inherit; text-decoration: none; }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2a2a48; border-radius: 2px; }
+::selection { background: rgba(255,59,59,0.25); color: #fff; }
+
+/* ── Grain overlay ─────────────────────────────────────────────────── */
+#grain {
+  position: fixed; inset: 0; z-index: 9990; pointer-events: none;
+  opacity: 0.028;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px;
+}
+
+/* ── Custom cursor ─────────────────────────────────────────────────── */
+#cursor {
+  position: fixed; top: 0; left: 0;
+  width: 8px; height: 8px;
+  background: #ff3b3b; border-radius: 50%;
+  pointer-events: none; z-index: 9999;
+  transform: translate(-50%, -50%);
+  transition: transform 0.1s ease, opacity 0.2s;
+  box-shadow: 0 0 12px rgba(255,59,59,0.8), 0 0 24px rgba(255,59,59,0.3);
+  will-change: transform;
+}
+
+/* ── Nav ───────────────────────────────────────────────────────────── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; height: 64px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 48px; z-index: 500;
+  transition: background 0.35s ease, border-color 0.35s ease,
+              backdrop-filter 0.35s ease;
+  border-bottom: 1px solid transparent;
+}
+nav.solid {
+  background: rgba(8,8,16,0.92);
+  border-bottom-color: rgba(255,255,255,0.06);
+  backdrop-filter: blur(14px);
+}
+.nav-logo {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 26px; letter-spacing: 0.22em; color: #fff;
+}
+.nav-logo em { color: #ff3b3b; font-style: normal; }
+.btn-nav {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 22px;
+  font: 600 11px/1 'DM Sans', sans-serif;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  background: #ff3b3b; color: #fff; border-radius: 5px;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 0 24px rgba(255,59,59,0.25);
+}
+.btn-nav:hover {
+  background: #ff5252; transform: translateY(-1px);
+  box-shadow: 0 0 36px rgba(255,59,59,0.4);
+}
+@media (max-width: 600px) { nav { padding: 0 24px; } }
+
+/* ── Shared layout ─────────────────────────────────────────────────── */
+.container { max-width: 1100px; margin: 0 auto; padding: 0 40px; }
+.section { padding: 130px 0; }
+.section-label {
+  font: 400 9px/1 'DM Mono', monospace;
+  letter-spacing: 0.45em; text-transform: uppercase;
+  color: #ff3b3b; margin-bottom: 22px;
+}
+.section-title {
+  font: 700 clamp(34px, 5vw, 52px)/1.1 'DM Sans', sans-serif;
+  color: #e8e8f0; margin-bottom: 56px;
+}
+.section-body {
+  font: 400 17px/1.75 'DM Sans', sans-serif;
+  color: rgba(232,232,240,0.58); max-width: 560px; margin-bottom: 52px;
+}
+@media (max-width: 768px) { .section { padding: 88px 0; } .container { padding: 0 24px; } }
+
+/* ── Reveal animations ─────────────────────────────────────────────── */
+[data-reveal] {
+  opacity: 0; transform: translateY(36px);
+  transition: opacity 0.75s ease var(--d,0ms),
+              transform 0.75s cubic-bezier(0.22,1,0.36,1) var(--d,0ms);
+}
+[data-reveal="right"] { transform: translateX(52px); }
+[data-reveal="fade"]  { transform: none; }
+[data-reveal="scale"] { transform: scale(0.94); }
+[data-reveal].in { opacity: 1; transform: none; }
+
+/* ── Hero ──────────────────────────────────────────────────────────── */
+#hero {
+  height: 100vh; min-height: 600px;
+  position: relative; display: flex;
+  align-items: center; justify-content: center;
+  text-align: center; overflow: hidden;
+}
+
+/* Log-line background */
+#log-bg {
+  position: absolute; inset: 0;
+  display: flex; pointer-events: none;
+  will-change: transform;
+}
+.log-col { flex: 1; overflow: hidden; }
+.log-col-inner {
+  font: 300 10px/1.95 'DM Mono', monospace;
+  color: rgba(232,232,240,0.055);
+  white-space: nowrap; padding: 0 20px;
+  user-select: none;
+}
+.log-col:first-child .log-col-inner { animation: logScroll 42s linear infinite; }
+.log-col:last-child  .log-col-inner { animation: logScroll 29s linear infinite; animation-delay: -8s; }
+@keyframes logScroll {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-50%); }
+}
+
+/* Red corner vignette */
+#hero::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,59,59,0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 40% at 50% 100%, rgba(8,8,16,0.95) 0%, transparent 80%);
+  z-index: 1;
+}
+
+#hero-content {
+  position: relative; z-index: 2;
+  display: flex; flex-direction: column; align-items: center;
+  will-change: transform;
+}
+
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  font: 500 9px/1 'DM Mono', monospace; letter-spacing: 0.3em;
+  text-transform: uppercase; color: rgba(255,59,59,0.85);
+  border: 1px solid rgba(255,59,59,0.22);
+  background: rgba(255,59,59,0.07);
+  padding: 8px 16px; border-radius: 100px; margin-bottom: 36px;
+  opacity: 0; animation: fadeUp 0.6s ease 0.8s forwards;
+}
+.hero-badge-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #ff3b3b; box-shadow: 0 0 6px rgba(255,59,59,0.9);
+  animation: pulse 1.8s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+.hero-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(96px, 18vw, 260px);
+  letter-spacing: 0.08em; line-height: 0.92;
+  color: #fff;
+  text-shadow: 0 0 120px rgba(255,59,59,0.18);
+  margin-bottom: 28px;
+}
+.hero-letter {
+  display: inline-block;
+  opacity: 0; transform: translateY(50px) skewX(-4deg);
+  transition: opacity 0.55s ease, transform 0.55s cubic-bezier(0.34,1.56,0.64,1);
+}
+.hero-letter.in { opacity: 1; transform: translateY(0) skewX(0); }
+
+.hero-sub {
+  font: 300 clamp(16px, 2.5vw, 22px)/1.4 'DM Sans', sans-serif;
+  color: rgba(232,232,240,0.55); margin-bottom: 52px; letter-spacing: 0.01em;
+  opacity: 0; animation: fadeUp 0.6s ease 1.1s forwards;
+}
+.hero-sub strong { color: #ff3b3b; font-weight: 500; }
+
+.btn-hero {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 18px 42px;
+  font: 600 13px/1 'DM Sans', sans-serif;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  background: #ff3b3b; color: #fff; border-radius: 6px;
+  transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 0 48px rgba(255,59,59,0.35), 0 4px 20px rgba(0,0,0,0.5);
+  opacity: 0; animation: fadeUp 0.6s ease 1.35s forwards;
+}
+.btn-hero:hover {
+  background: #ff5252; transform: translateY(-3px);
+  box-shadow: 0 0 72px rgba(255,59,59,0.5), 0 8px 28px rgba(0,0,0,0.6);
+}
+.btn-hero:active { transform: translateY(0); }
+
+.scroll-cue {
+  position: absolute; bottom: 36px; left: 50%;
+  transform: translateX(-50%);
+  font: 400 8px/1 'DM Mono', monospace;
+  letter-spacing: 0.5em; text-transform: uppercase;
+  color: rgba(232,232,240,0.18); z-index: 2;
+  animation: bobDown 2.4s ease-in-out infinite;
+  opacity: 0; animation-delay: 1.8s;
+  /* keep the fade-in */
+  animation: fadeUp 0.5s ease 1.8s forwards, bobDown 2.4s ease-in-out 2.3s infinite;
+}
+@keyframes bobDown {
+  0%,100% { transform: translateX(-50%) translateY(0); }
+  50%     { transform: translateX(-50%) translateY(7px); }
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Problem ───────────────────────────────────────────────────────── */
+#problem { border-top: 1px solid rgba(255,255,255,0.04); }
+.stats-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+}
+.stat-card {
+  padding: 44px 32px 40px;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  background: linear-gradient(160deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.01) 100%);
+  position: relative; overflow: hidden;
+}
+.stat-card::after {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,59,59,0.4), transparent);
+}
+.stat-num {
+  font: 400 clamp(52px, 7vw, 76px)/1 'Bebas Neue', sans-serif;
+  color: #ff3b3b; letter-spacing: 0.05em; margin-bottom: 18px;
+  text-shadow: 0 0 48px rgba(255,59,59,0.45);
+}
+.stat-desc {
+  font: 400 14px/1.55 'DM Sans', sans-serif;
+  color: rgba(232,232,240,0.45);
+}
+@media (max-width: 768px) {
+  .stats-grid { grid-template-columns: 1fr; max-width: 420px; }
+  .section-title { margin-bottom: 36px; }
+}
+
+/* ── How it works ──────────────────────────────────────────────────── */
+#how { background: rgba(255,255,255,0.012); border-top: 1px solid rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.04); }
+.steps { display: flex; flex-direction: column; }
+.step {
+  display: grid; grid-template-columns: 96px 1fr; gap: 40px;
+  align-items: start; padding: 52px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.045);
+}
+.step:last-child { border-bottom: none; }
+.step-num {
+  font: 400 88px/1 'Bebas Neue', sans-serif;
+  color: rgba(255,59,59,0.14); letter-spacing: 0.04em;
+  padding-top: 4px;
+}
+.step-name {
+  font: 700 22px/1 'DM Sans', sans-serif;
+  letter-spacing: 0.16em; color: #e8e8f0; margin-bottom: 18px;
+}
+.step-desc {
+  font: 400 16px/1.75 'DM Sans', sans-serif;
+  color: rgba(232,232,240,0.52); max-width: 580px; margin-bottom: 24px;
+}
+.chip-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.chip {
+  font: 400 10px/1 'DM Mono', monospace; letter-spacing: 0.05em;
+  padding: 7px 13px; border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(232,232,240,0.45);
+  background: rgba(255,255,255,0.03);
+}
+.chip.red { border-color: rgba(255,59,59,0.28); color: rgba(255,59,59,0.75); background: rgba(255,59,59,0.05); }
+.chip.green { border-color: rgba(0,229,160,0.22); color: rgba(0,229,160,0.7); background: rgba(0,229,160,0.04); }
+.arrow-sep { color: rgba(232,232,240,0.2); font-size: 13px; }
+@media (max-width: 680px) {
+  .step { grid-template-columns: 1fr; gap: 12px; }
+  .step-num { font-size: 52px; }
+}
+
+/* ── Signal strength ───────────────────────────────────────────────── */
+#signal { border-top: 1px solid rgba(255,255,255,0.04); }
+.signals { display: flex; flex-direction: column; gap: 36px; max-width: 680px; }
+.sig-row {
+  display: flex; align-items: center; gap: 32px;
+  padding: 28px 32px; border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.05);
+  background: rgba(255,255,255,0.018);
+}
+.dots { display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
+.dot {
+  width: 15px; height: 15px; border-radius: 50%;
+  border: 2px solid currentColor;
+  background: transparent;
+  transition: background 0.4s ease, box-shadow 0.4s ease;
+}
+.dot.red   { color: #ff3b3b; }
+.dot.amber { color: #f59e0b; }
+.dot.gray  { color: rgba(232,232,240,0.2); }
+.dot.on    { background: currentColor; }
+.dot.red.on   { box-shadow: 0 0 10px rgba(255,59,59,0.65), 0 0 20px rgba(255,59,59,0.25); }
+.dot.amber.on { box-shadow: 0 0 10px rgba(245,158,11,0.55), 0 0 20px rgba(245,158,11,0.2); }
+.sig-info { display: flex; flex-direction: column; gap: 6px; }
+.sig-label {
+  font: 700 10px/1 'DM Mono', monospace; letter-spacing: 0.25em;
+}
+.sig-label.h { color: #ff3b3b; }
+.sig-label.m { color: #f59e0b; }
+.sig-label.l { color: rgba(232,232,240,0.3); }
+.sig-desc {
+  font: 400 14px/1.55 'DM Sans', sans-serif;
+  color: rgba(232,232,240,0.48);
+}
+@media (max-width: 540px) { .sig-row { flex-direction: column; align-items: flex-start; gap: 16px; } }
+
+/* ── Severity ──────────────────────────────────────────────────────── */
+#severity { background: rgba(255,255,255,0.012); border-top: 1px solid rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.04); }
+.sev-layout {
+  display: grid; grid-template-columns: 200px 1fr; gap: 88px; align-items: center;
+}
+.sev-gauge {
+  position: relative; width: 200px; height: 200px; flex-shrink: 0;
+}
+.sev-svg { width: 100%; height: 100%; }
+.sev-num {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font: 400 88px/1 'Bebas Neue', sans-serif;
+  color: #ff3b3b; letter-spacing: 0.04em;
+  text-shadow: 0 0 36px rgba(255,59,59,0.65);
+}
+.sev-factors { display: flex; gap: 28px; flex-wrap: wrap; margin-top: 36px; }
+.sev-factor {
+  display: flex; align-items: center; gap: 9px;
+  font: 400 13px/1 'DM Mono', monospace;
+  color: rgba(232,232,240,0.38);
+}
+.sev-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #ff3b3b; box-shadow: 0 0 7px rgba(255,59,59,0.7); flex-shrink: 0;
+}
+@media (max-width: 768px) {
+  .sev-layout { grid-template-columns: 1fr; gap: 48px; }
+  .sev-gauge { margin: 0 auto; }
+  .sev-factors { justify-content: center; }
+}
+
+/* ── Demo scenarios ────────────────────────────────────────────────── */
+#scenarios { border-top: 1px solid rgba(255,255,255,0.04); }
+.cards-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px;
+}
+.flip-card { perspective: 1100px; height: 340px; }
+.flip-inner {
+  width: 100%; height: 100%; position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.65s cubic-bezier(0.4,0,0.2,1);
+}
+@media (hover: hover) { .flip-card:hover .flip-inner { transform: rotateY(180deg); } }
+.flip-card.flipped .flip-inner { transform: rotateY(180deg); }
+.flip-front, .flip-back {
+  position: absolute; inset: 0; backface-visibility: hidden;
+  border-radius: 12px; padding: 28px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.flip-front {
+  background: linear-gradient(160deg, rgba(255,255,255,0.025), rgba(255,255,255,0.01));
+  display: flex; flex-direction: column;
+}
+.flip-back {
+  background: rgba(255,59,59,0.04);
+  border-color: rgba(255,59,59,0.12);
+  transform: rotateY(180deg);
+  display: flex; flex-direction: column; gap: 14px;
+}
+.card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.card-id { font: 400 56px/1 'Bebas Neue', sans-serif; color: rgba(255,59,59,0.2); letter-spacing: 0.04em; }
+.sev-pill {
+  font: 500 9px/1 'DM Mono', monospace; letter-spacing: 0.18em;
+  padding: 5px 10px; border-radius: 4px;
+}
+.sev-pill.c9 { color: #ff3b3b; border: 1px solid rgba(255,59,59,0.3); background: rgba(255,59,59,0.08); }
+.sev-pill.c7 { color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); background: rgba(245,158,11,0.07); }
+.sev-pill.c6 { color: #e6a800; border: 1px solid rgba(245,158,11,0.2); background: rgba(245,158,11,0.05); }
+.card-title { font: 600 16px/1.3 'DM Sans', sans-serif; color: #e8e8f0; margin-bottom: 12px; }
+.card-cause { font: 400 13px/1.65 'DM Mono', monospace; color: rgba(232,232,240,0.38); flex: 1; }
+.card-hint { font: 400 9px/1 'DM Mono', monospace; letter-spacing: 0.25em; color: rgba(255,255,255,0.12); margin-top: auto; padding-top: 12px; }
+.fix-head { font: 600 8px/1 'DM Mono', monospace; letter-spacing: 0.35em; color: rgba(255,59,59,0.65); }
+.fix-steps { display: flex; flex-direction: column; gap: 9px; padding-left: 0; list-style: none; }
+.fix-steps li { font: 400 12px/1.5 'DM Mono', monospace; color: rgba(232,232,240,0.45); display: flex; gap: 8px; }
+.fix-steps li::before { content: attr(data-n); color: rgba(255,59,59,0.4); flex-shrink: 0; font-weight: 500; }
+.fix-steps code {
+  display: block; margin-top: 3px;
+  font: 400 10px/1.4 'DM Mono', monospace;
+  background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.07);
+  padding: 4px 8px; border-radius: 4px; color: rgba(0,229,160,0.75);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+@media (max-width: 900px) { .cards-grid { grid-template-columns: 1fr; max-width: 460px; } }
+
+/* ── Built with ────────────────────────────────────────────────────── */
+#built { background: rgba(255,255,255,0.012); border-top: 1px solid rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.04); }
+.tech-row { display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; align-items: stretch; }
+.tech-tile {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 22px 28px; border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.05);
+  background: rgba(255,255,255,0.02);
+  transition: border-color 0.2s, transform 0.2s;
+  min-width: 130px;
+}
+.tech-tile:hover { transform: translateY(-3px); }
+.tech-name {
+  font: 500 13px/1 'DM Mono', monospace;
+  letter-spacing: 0.06em;
+}
+.tech-sub {
+  font: 400 10px/1.4 'DM Mono', monospace;
+  color: rgba(232,232,240,0.28); text-align: center;
+}
+.t-nvidia { color: #76b900; } .tech-tile:has(.t-nvidia):hover { border-color: rgba(118,185,0,0.25); }
+.t-clerk  { color: #7c3aed; } .tech-tile:has(.t-clerk):hover  { border-color: rgba(124,58,237,0.25); }
+.t-render { color: #46e3b7; } .tech-tile:has(.t-render):hover { border-color: rgba(70,227,183,0.25); }
+.t-react  { color: #61dafb; } .tech-tile:has(.t-react):hover  { border-color: rgba(97,218,251,0.25); }
+.t-vite   { color: #646cff; } .tech-tile:has(.t-vite):hover   { border-color: rgba(100,108,255,0.25); }
+.t-prisma { color: #5a67d8; } .tech-tile:has(.t-prisma):hover { border-color: rgba(90,103,216,0.25); }
+@media (max-width: 600px) { .tech-tile { min-width: calc(50% - 9px); } }
+
+/* ── CTA footer ────────────────────────────────────────────────────── */
+#cta {
+  padding: 140px 0 100px; text-align: center;
+  position: relative; overflow: hidden;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+#cta::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse 70% 55% at 50% 0%, rgba(255,59,59,0.08) 0%, transparent 70%);
+}
+.cta-title {
+  font: 400 clamp(54px, 9.5vw, 120px)/1.02 'Bebas Neue', sans-serif;
+  letter-spacing: 0.04em; color: #e8e8f0;
+  margin-bottom: 52px; position: relative;
+}
+.cta-links { margin-top: 36px; display: flex; gap: 32px; align-items: center; justify-content: center; flex-wrap: wrap; }
+.cta-links a {
+  display: inline-flex; align-items: center; gap: 8px;
+  font: 400 12px/1 'DM Mono', monospace; letter-spacing: 0.08em;
+  color: rgba(232,232,240,0.3);
+  transition: color 0.2s;
+}
+.cta-links a:hover { color: rgba(232,232,240,0.7); }
+.cta-fine { margin-top: 60px; font: 400 10px/1 'DM Mono', monospace; letter-spacing: 0.25em; color: rgba(232,232,240,0.15); }
+</style>
+</head>
+<body>
+
+<div id="grain"></div>
+<div id="cursor"></div>
+
+<!-- ── Nav ─────────────────────────────────────────────────────────── -->
+<nav id="nav">
+  <div class="nav-logo">N<em>E</em>RVE</div>
+  <a href="https://nerve-q1tv.onrender.com" target="_blank" rel="noopener" class="btn-nav">
+    Launch App &rarr;
+  </a>
+</nav>
+
+<!-- ── Hero ────────────────────────────────────────────────────────── -->
+<section id="hero">
+  <div id="log-bg">
+    <div class="log-col"><div class="log-col-inner" id="log-a"></div></div>
+    <div class="log-col"><div class="log-col-inner" id="log-b"></div></div>
+  </div>
+
+  <div id="hero-content">
+    <div class="hero-badge">
+      <span class="hero-badge-dot"></span>
+      Incident analysis engine online
+    </div>
+    <h1 class="hero-title" id="hero-title" aria-label="NERVE"></h1>
+    <p class="hero-sub">Root cause analysis. <strong>47 seconds.</strong></p>
+    <a href="https://nerve-q1tv.onrender.com" target="_blank" rel="noopener" class="btn-hero">
+      Launch App &rarr;
+    </a>
+  </div>
+
+  <div class="scroll-cue">&#x2193;&nbsp;&nbsp;scroll</div>
+</section>
+
+<!-- ── Problem ──────────────────────────────────────────────────────── -->
+<section class="section" id="problem">
+  <div class="container">
+    <div class="section-label" data-reveal data-delay="0">The Problem</div>
+    <h2 class="section-title" data-reveal data-delay="80">
+      Every P1 has a culprit.<br>Finding it shouldn't take an hour.
+    </h2>
+    <div class="stats-grid">
+      <div class="stat-card" data-reveal data-delay="0">
+        <div class="stat-num" id="c1">0 MIN</div>
+        <div class="stat-desc">Average time to diagnose a P1 incident</div>
+      </div>
+      <div class="stat-card" data-reveal data-delay="120">
+        <div class="stat-num" id="c2">0%</div>
+        <div class="stat-desc">Of SRE time spent diagnosing, not fixing</div>
+      </div>
+      <div class="stat-card" data-reveal data-delay="240">
+        <div class="stat-num" id="c3">0 TOOLS</div>
+        <div class="stat-desc">Context-switched during a single outage</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── How it works ─────────────────────────────────────────────────── -->
+<section class="section" id="how">
+  <div class="container">
+    <div class="section-label" data-reveal>How It Works</div>
+    <h2 class="section-title" data-reveal data-delay="80">Three steps. One answer.</h2>
+
+    <div class="steps">
+      <div class="step" data-reveal="right" data-delay="0">
+        <div class="step-num">01</div>
+        <div>
+          <div class="step-name">INGEST</div>
+          <div class="step-desc">Paste raw logs, drop a file, or pull from your clipboard. NERVE accepts structured and unstructured output from Kubernetes, Redis, Postgres, Kafka, and any service that emits timestamped text.</div>
+          <div class="chip-row" style="margin-top:18px;">
+            <span class="chip">.log</span><span class="chip">.txt</span><span class="chip">.json</span>
+            <span class="chip">drag &amp; drop</span><span class="chip">clipboard paste</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step" data-reveal="right" data-delay="200">
+        <div class="step-num">02</div>
+        <div>
+          <div class="step-name">ANALYZE</div>
+          <div class="step-desc">A three-model AI pipeline correlates signals across services. Nemotron 49B for primary analysis, Llama 8B for automatic failover, and a second Llama 8B pass to guarantee valid structured JSON output.</div>
+          <div class="chip-row" style="margin-top:18px;">
+            <span class="chip red">Nemotron 49B</span>
+            <span class="arrow-sep">&rarr;</span>
+            <span class="chip">Llama 8B fallback</span>
+            <span class="arrow-sep">&rarr;</span>
+            <span class="chip">JSON formatter</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step" data-reveal="right" data-delay="400">
+        <div class="step-num">03</div>
+        <div>
+          <div class="step-name">DIAGNOSE</div>
+          <div class="step-desc">Structured output in under 60 seconds: a reconstructed incident timeline, root cause hypotheses ranked by signal strength, concrete fix steps with real commands, and a severity score with blast-radius justification.</div>
+          <div class="chip-row" style="margin-top:18px;">
+            <span class="chip green">Timeline</span>
+            <span class="chip green">Hypotheses</span>
+            <span class="chip green">Fix Steps</span>
+            <span class="chip green">Severity 1–10</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Signal strength ───────────────────────────────────────────────── -->
+<section class="section" id="signal">
+  <div class="container">
+    <div class="section-label" data-reveal>Signal Strength</div>
+    <h2 class="section-title" data-reveal data-delay="80">Not all hypotheses are equal.</h2>
+    <p class="section-body" data-reveal data-delay="140">NERVE ranks every root cause candidate by the strength of its evidence trail — so you fix the right thing first, not the most recent thing you noticed.</p>
+
+    <div class="signals">
+      <div class="sig-row" data-reveal data-delay="0" data-dots="3" data-dot-color="red">
+        <div class="dots">
+          <span class="dot red" data-di="0"></span>
+          <span class="dot red" data-di="1"></span>
+          <span class="dot red" data-di="2"></span>
+        </div>
+        <div class="sig-info">
+          <span class="sig-label h">HIGH</span>
+          <span class="sig-desc">Direct causal chain confirmed by multiple corroborating log lines. Fix this first.</span>
+        </div>
+      </div>
+
+      <div class="sig-row" data-reveal data-delay="100" data-dots="2" data-dot-color="amber">
+        <div class="dots">
+          <span class="dot amber" data-di="0"></span>
+          <span class="dot amber" data-di="1"></span>
+          <span class="dot gray"></span>
+        </div>
+        <div class="sig-info">
+          <span class="sig-label m">MED</span>
+          <span class="sig-desc">Strong correlation across two or more services, limited direct causation evidence.</span>
+        </div>
+      </div>
+
+      <div class="sig-row" data-reveal data-delay="200" data-dots="1" data-dot-color="gray">
+        <div class="dots">
+          <span class="dot gray" data-di="0"></span>
+          <span class="dot gray" style="opacity:0.3"></span>
+          <span class="dot gray" style="opacity:0.3"></span>
+        </div>
+        <div class="sig-info">
+          <span class="sig-label l">LOW</span>
+          <span class="sig-desc">Possible contributor, insufficient evidence. Background noise candidate — investigate last.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Severity score ────────────────────────────────────────────────── -->
+<section class="section" id="severity">
+  <div class="container">
+    <div class="sev-layout">
+      <div class="sev-gauge" data-reveal="scale">
+        <svg class="sev-svg" viewBox="0 0 120 120">
+          <!-- track -->
+          <circle cx="60" cy="60" r="48" fill="none"
+            stroke="#1a1a2e" stroke-width="7"
+            stroke-dasharray="226.2 75.4" stroke-linecap="round"
+            transform="rotate(-135 60 60)"/>
+          <!-- fill -->
+          <circle cx="60" cy="60" r="48" fill="none"
+            stroke="#ff3b3b" stroke-width="7"
+            id="sev-arc" stroke-dasharray="0 301.6" stroke-linecap="round"
+            transform="rotate(-135 60 60)"
+            style="filter:drop-shadow(0 0 8px rgba(255,59,59,.75)); transition:stroke-dasharray 1.3s cubic-bezier(.34,1.2,.64,1)"/>
+        </svg>
+        <div class="sev-num" id="sev-num">0</div>
+      </div>
+
+      <div>
+        <div class="section-label" data-reveal>Severity Score</div>
+        <h2 class="section-title" data-reveal data-delay="80" style="margin-bottom:20px;">Every incident<br>scored.</h2>
+        <p class="section-body" data-reveal data-delay="140" style="margin-bottom:0;">
+          NERVE assigns a 1–10 severity score based on three factors: blast radius across dependent services, cascade speed from trigger to first customer impact, and recoverability without manual intervention.
+        </p>
+        <div class="sev-factors" data-reveal data-delay="220">
+          <div class="sev-factor"><div class="sev-dot"></div>Blast radius</div>
+          <div class="sev-factor"><div class="sev-dot"></div>Cascade speed</div>
+          <div class="sev-factor"><div class="sev-dot"></div>Recoverability</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Demo scenarios ────────────────────────────────────────────────── -->
+<section class="section" id="scenarios">
+  <div class="container">
+    <div class="section-label" data-reveal>Demo Scenarios</div>
+    <h2 class="section-title" data-reveal data-delay="80">Real incidents. Real analysis.</h2>
+
+    <div class="cards-grid">
+      <!-- Scenario A -->
+      <div class="flip-card" data-reveal data-delay="0">
+        <div class="flip-inner">
+          <div class="flip-front">
+            <div class="card-head">
+              <div class="card-id">A</div>
+              <div class="sev-pill c9">SEV&nbsp;9</div>
+            </div>
+            <div class="card-title">Redis OOM → API 503 Cascade</div>
+            <div class="card-cause">Redis memory exhaustion at 97.5% triggers cache thrashing, connection pool exhaustion, and full API gateway failure across all regions within 90 seconds.</div>
+            <div class="card-hint">Hover to reveal fix steps</div>
+          </div>
+          <div class="flip-back">
+            <div class="fix-head">Remediation</div>
+            <ul class="fix-steps">
+              <li data-n="1.">Promote replica-2 as primary<code>redis-cli REPLICAOF NO ONE</code></li>
+              <li data-n="2.">Increase memory limit<code>CONFIG SET maxmemory 12gb</code></li>
+              <li data-n="3.">Switch eviction policy<code>CONFIG SET maxmemory-policy volatile-lru</code></li>
+              <li data-n="4.">Throttle cache warm-up to prevent DB storm</li>
+              <li data-n="5.">Set alert threshold at 75% memory utilisation</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scenario B -->
+      <div class="flip-card" data-reveal data-delay="150">
+        <div class="flip-inner">
+          <div class="flip-front">
+            <div class="card-head">
+              <div class="card-id">B</div>
+              <div class="sev-pill c7">SEV&nbsp;7</div>
+            </div>
+            <div class="card-title">Bad Deploy → Payment Failures</div>
+            <div class="card-cause">Deployment of payments-api v2.4.2 silently reduced the DB connection pool from 50 to 5, exhausting connections under normal traffic load within seconds.</div>
+            <div class="card-hint">Hover to reveal fix steps</div>
+          </div>
+          <div class="flip-back">
+            <div class="fix-head">Remediation</div>
+            <ul class="fix-steps">
+              <li data-n="1.">Immediate rollback<code>kubectl rollout undo deploy/payments-api</code></li>
+              <li data-n="2.">Identify misconfigured env var in v2.4.2 diff</li>
+              <li data-n="3.">Release v2.4.3 with pool config restored to 50</li>
+              <li data-n="4.">Add pool alert: trigger at 80% utilisation</li>
+              <li data-n="5.">Add config diff check to CI deployment pipeline</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scenario C -->
+      <div class="flip-card" data-reveal data-delay="300">
+        <div class="flip-inner">
+          <div class="flip-front">
+            <div class="card-head">
+              <div class="card-id">C</div>
+              <div class="sev-pill c6">SEV&nbsp;6</div>
+            </div>
+            <div class="card-title">Kafka Lag → Order Backlog</div>
+            <div class="card-cause">Kafka consumer group offset reset after broker restart left 2.4 M messages unprocessed, causing order fulfilment SLA breaches and cascading customer-facing delays.</div>
+            <div class="card-hint">Hover to reveal fix steps</div>
+          </div>
+          <div class="flip-back">
+            <div class="fix-head">Remediation</div>
+            <ul class="fix-steps">
+              <li data-n="1.">Scale consumer group<code>kubectl scale deploy/order-consumer --replicas=12</code></li>
+              <li data-n="2.">Monitor lag<code>kafka-consumer-groups.sh --describe --group orders</code></li>
+              <li data-n="3.">Replay dead-letter messages selectively</li>
+              <li data-n="4.">Set lag alert at 50 K messages</li>
+              <li data-n="5.">Test broker restart with consumer offset retention</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Built with ────────────────────────────────────────────────────── -->
+<section class="section" id="built">
+  <div class="container" style="text-align:center;">
+    <div class="section-label" data-reveal>Built With</div>
+    <div class="tech-row" data-reveal data-delay="80">
+      <div class="tech-tile">
+        <span class="tech-name t-nvidia">NVIDIA NIM</span>
+        <span class="tech-sub">Nemotron 49B<br>Llama 3.1 8B</span>
+      </div>
+      <div class="tech-tile">
+        <span class="tech-name t-clerk">Clerk</span>
+        <span class="tech-sub">Auth &amp;<br>multitenancy</span>
+      </div>
+      <div class="tech-tile">
+        <span class="tech-name t-render">Render</span>
+        <span class="tech-sub">Docker<br>deployment</span>
+      </div>
+      <div class="tech-tile">
+        <span class="tech-name t-react">React 18</span>
+        <span class="tech-sub">Frontend<br>framework</span>
+      </div>
+      <div class="tech-tile">
+        <span class="tech-name t-vite">Vite 6</span>
+        <span class="tech-sub">Build<br>tooling</span>
+      </div>
+      <div class="tech-tile">
+        <span class="tech-name t-prisma">Prisma</span>
+        <span class="tech-sub">PostgreSQL<br>ORM</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA footer ─────────────────────────────────────────────────────── -->
+<footer id="cta">
+  <div class="container">
+    <h2 class="cta-title" data-reveal>Stop hunting logs.<br>Start fixing.</h2>
+    <a href="https://nerve-q1tv.onrender.com" target="_blank" rel="noopener"
+       class="btn-hero" data-reveal data-delay="100" style="animation:none;opacity:0;">
+      Launch App &rarr;
+    </a>
+    <div class="cta-links" data-reveal data-delay="200">
+      <a href="https://github.com/360NoScopeGuru/NERVE" target="_blank" rel="noopener">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.604-3.369-1.342-3.369-1.342-.454-1.154-1.11-1.461-1.11-1.461-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836a9.59 9.59 0 012.504.337c1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
+        github.com/360NoScopeGuru/NERVE
+      </a>
+    </div>
+    <div class="cta-fine" data-reveal data-delay="300">Open source &nbsp;·&nbsp; MIT licensed &nbsp;·&nbsp; Deployed on Render</div>
+  </div>
+</footer>
+
+<script>
+/* ── Log line data ──────────────────────────────────────────────────── */
+const LOGS_A = [
+  '2026-05-24T03:41:02Z [redis-primary]   WARN  Memory usage: 7.8GB/8.0GB (97.5%)',
+  '2026-05-24T03:41:15Z [api-gateway-3]   WARN  Redis GET latency p99=2340ms (threshold: 500ms)',
+  '2026-05-24T03:41:23Z [api-gateway-1]   ERROR Redis pool: 48/50 connections blocked (timeout=3000ms)',
+  '2026-05-24T03:41:25Z [session-svc]     ERROR REDIS_TIMEOUT after 3001ms key=sess:u:8823941',
+  '2026-05-24T03:41:26Z [api-gateway-1]   ERROR Upstream timeout: session-svc 504 after 3100ms',
+  '2026-05-24T03:41:27Z [api-gateway-2]   ERROR HTTP 503 Service Unavailable — threshold exceeded (>80%)',
+  '2026-05-24T03:41:28Z [load-balancer]   WARN  Health check FAILED: api-gateway-1 /healthz returned 503',
+  '2026-05-24T03:41:29Z [pagerduty]       CRIT  P1 INCIDENT TRIGGERED: API 503 rate >50% all regions',
+  '2026-05-24T03:41:31Z [redis-primary]   ERROR Out of memory: process terminated by OOM killer',
+  '2026-05-24T03:41:32Z [redis-sentinel]  WARN  redis-primary DOWN — initiating failover',
+  '2026-05-24T03:41:34Z [redis-replica-2] INFO  Replication complete — now serving as primary',
+  '2026-05-24T03:41:35Z [api-gateway-1]   INFO  Redis reconnected to replica-2:6379 — pool recovering',
+  '2026-05-24T03:41:42Z [cache-warmer]    WARN  Cold cache: hit rate 2.1% (was 94.3%)',
+  '2026-05-24T03:42:01Z [postgres]        ERROR too many connections: 498/500',
+  '2026-05-24T03:42:03Z [api-gateway-1]   ERROR PG_CONN_REFUSED — secondary cascade failure',
+  '2026-05-24T03:11:02Z [deploy-service]  INFO  Deploy: payments-api v2.4.1→v2.4.2 by ci-bot',
+  '2026-05-24T03:11:16Z [payments-api]    WARN  Config loaded: db.pool.max_connections=5 (was 50)',
+  '2026-05-24T03:11:23Z [payments-api]    WARN  DB connection pool near limit: 4/5 active',
+  '2026-05-24T03:11:25Z [payments-api]    ERROR DB pool exhausted: timeout after 3002ms',
+  '2026-05-24T03:11:25Z [payments-api]    ERROR Payment failed: unable to acquire connection [txn=8821a]',
+  '2026-05-24T03:11:27Z [postgres]        WARN  Idle connections: 0 — all slots occupied',
+  '2026-05-24T05:14:33Z [kafka-broker-2]  WARN  Consumer group lag: 2.4M messages (orders)',
+  '2026-05-24T05:14:45Z [order-svc]       ERROR Processing backlog exceeded SLA: 3200ms avg',
+  '2026-05-24T05:15:02Z [order-svc]       ERROR Dead letter queue: 18 142 events pending',
+  '2026-05-24T05:15:14Z [pagerduty]       CRIT  P2 ORDER SLA BREACH — fulfilment delayed >5min',
+]
+
+const LOGS_B = [
+  '2026-05-24T04:22:01Z [cert-manager]    WARN  TLS certificate expires in 24h: api.prod.internal',
+  '2026-05-24T04:23:15Z [auth-service]    ERROR TLS handshake failed: certificate expired',
+  '2026-05-24T04:23:18Z [api-gateway-2]   ERROR auth-service: connection refused',
+  '2026-05-24T04:23:22Z [api-gateway-1]   ERROR 401 Unauthorized — all authenticated endpoints',
+  '2026-05-24T06:08:11Z [k8s-scheduler]   WARN  Node nerve-worker-3 NotReady (disk pressure)',
+  '2026-05-24T06:08:22Z [kubelet]         ERROR Evicting pods from nerve-worker-3: disk 94% used',
+  '2026-05-24T06:08:35Z [inference-svc]   WARN  Replica count: 3/6 (3 evicted, rescheduling)',
+  '2026-05-24T06:09:01Z [inference-svc]   ERROR Request timeout: model not warmed — cold start 28s',
+  '2026-05-24T06:09:12Z [api-gateway-1]   ERROR Upstream timeout: inference-svc 504 after 30s',
+  '2026-05-24T07:31:44Z [prometheus]      WARN  Target api-gateway-2 scrape failed: refused',
+  '2026-05-24T07:31:55Z [alertmanager]    CRIT  SLO burn: error rate 4.2% (budget: 0.1%)',
+  '2026-05-24T07:32:01Z [pagerduty]       CRIT  P1 SLO BURN — 28x error budget rate',
+  '2026-05-24T08:14:02Z [postgres]        WARN  Autovacuum: relation orders bloat 42%',
+  '2026-05-24T08:14:33Z [postgres]        WARN  Sequential scan on orders (8.2M rows) — missing index',
+  '2026-05-24T08:15:01Z [payments-api]    WARN  Query timeout p95=4200ms (threshold: 500ms)',
+  '2026-05-24T09:02:18Z [nginx-ingress]   WARN  upstream timed out (110) while reading response',
+  '2026-05-24T09:02:22Z [nginx-ingress]   ERROR no live upstreams while connecting to upstream',
+  '2026-05-24T09:02:28Z [load-balancer]   CRIT  All upstreams unhealthy — returning 502',
+  '2026-05-24T10:44:01Z [redis-replica-2] WARN  Replication lag 8400ms — primary unreachable',
+  '2026-05-24T10:44:15Z [redis-sentinel]  WARN  Quorum check failed: 1/2 sentinels reachable',
+  '2026-05-24T11:22:33Z [deploy-service]  INFO  Rollback initiated: payments-api → v2.4.1',
+  '2026-05-24T11:22:45Z [payments-api]    INFO  Service restarted — pool.max_connections=50 restored',
+  '2026-05-24T11:22:51Z [payments-api]    INFO  Health check OK — accepting traffic',
+  '2026-05-24T11:23:02Z [pagerduty]       INFO  P1 resolved — all services nominal',
+  '2026-05-24T11:23:15Z [nerve]           INFO  Root cause identified in 47s — MTTR saved: 22min',
+]
+
+function buildLogCol(id, lines) {
+  const el = document.getElementById(id)
+  if (!el) return
+  const all = [...lines, ...lines] // duplicate for seamless loop
+  el.innerHTML = all.map(l => `<div>${l}</div>`).join('')
+}
+buildLogCol('log-a', LOGS_A)
+buildLogCol('log-b', LOGS_B)
+
+/* ── Custom cursor ──────────────────────────────────────────────────── */
+const cursor = document.getElementById('cursor')
+let mx = 0, my = 0
+if (!('ontouchstart' in window)) {
+  document.addEventListener('mousemove', e => {
+    mx = e.clientX; my = e.clientY
+    cursor.style.transform = `translate(${mx}px, ${my}px) translate(-50%, -50%)`
+  })
+  document.addEventListener('mouseleave', () => { cursor.style.opacity = '0' })
+  document.addEventListener('mouseenter', () => { cursor.style.opacity = '1' })
+} else {
+  cursor.style.display = 'none'
+  document.body.style.cursor = 'auto'
+}
+
+/* ── Nav on scroll ──────────────────────────────────────────────────── */
+const nav = document.getElementById('nav')
+window.addEventListener('scroll', () => {
+  nav.classList.toggle('solid', window.scrollY > 80)
+}, { passive: true })
+
+/* ── Hero parallax ──────────────────────────────────────────────────── */
+const heroBg = document.getElementById('log-bg')
+const heroContent = document.getElementById('hero-content')
+window.addEventListener('scroll', () => {
+  const y = window.scrollY
+  if (y < window.innerHeight) {
+    heroBg.style.transform = `translateY(${y * 0.22}px)`
+    heroContent.style.transform = `translateY(${y * 0.42}px)`
+    heroContent.style.opacity = 1 - y / (window.innerHeight * 0.75)
+  }
+}, { passive: true })
+
+/* ── Hero letter assembly ───────────────────────────────────────────── */
+;(function assembleTitle() {
+  const el = document.getElementById('hero-title')
+  const word = 'NERVE'
+  el.innerHTML = word.split('').map((ch, i) =>
+    `<span class="hero-letter" style="transition-delay:${i * 60}ms">${ch}</span>`
+  ).join('')
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    el.querySelectorAll('.hero-letter').forEach(s => s.classList.add('in'))
+  }))
+})()
+
+/* ── Flip cards: click on touch ─────────────────────────────────────── */
+if (window.matchMedia('(hover: none)').matches) {
+  document.querySelectorAll('.flip-card').forEach(card => {
+    card.addEventListener('click', () => card.classList.toggle('flipped'))
+  })
+}
+
+/* ── Counter animation ──────────────────────────────────────────────── */
+function runCounter(el, target, suffix, duration) {
+  const start = performance.now()
+  ;(function tick(now) {
+    const p = Math.min((now - start) / duration, 1)
+    const e = 1 - Math.pow(1 - p, 3)
+    el.textContent = Math.round(e * target) + suffix
+    if (p < 1) requestAnimationFrame(tick)
+  })(start)
+}
+
+/* ── Severity gauge ─────────────────────────────────────────────────── */
+let sevDone = false
+function runSeverity() {
+  if (sevDone) return
+  sevDone = true
+  const numEl = document.getElementById('sev-num')
+  const arc   = document.getElementById('sev-arc')
+  const total = 226.2  // 75% of circumference (270° arc)
+  const circ  = 301.6
+  const target = 9
+  const filled = (target / 10) * total
+  const start = performance.now()
+  const dur   = 1500
+  ;(function tick(now) {
+    const p = Math.min((now - start) / dur, 1)
+    const e = 1 - Math.pow(1 - p, 3)
+    numEl.textContent = Math.round(e * target)
+    arc.style.strokeDasharray = `${e * filled} ${circ - e * filled}`
+    if (p < 1) requestAnimationFrame(tick)
+  })(start)
+}
+
+/* ── IntersectionObserver ───────────────────────────────────────────── */
+const io = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    if (!entry.isIntersecting) return
+    const el = entry.target
+
+    el.classList.add('in')
+
+    /* counter cards */
+    if (el.id === 'c1') runCounter(el, 23, ' MIN',  1600)
+    if (el.id === 'c2') runCounter(el, 60, '%',     1800)
+    if (el.id === 'c3') runCounter(el,  5, ' TOOLS', 1400)
+
+    /* severity */
+    if (el.closest('#severity')) runSeverity()
+
+    /* signal dots — fill with stagger */
+    el.querySelectorAll('[data-di]').forEach(dot => {
+      const delay = parseInt(dot.dataset.di) * 130
+      setTimeout(() => dot.classList.add('on'), delay)
+    })
+
+    io.unobserve(el)
+  })
+}, { threshold: 0.22 })
+
+document.querySelectorAll('[data-reveal]').forEach(el => {
+  if (el.dataset.delay) el.style.setProperty('--d', el.dataset.delay + 'ms')
+  io.observe(el)
+})
+
+/* Also observe stat cards and sev gauge directly */
+document.querySelectorAll('.stat-card, .sev-gauge').forEach(el => io.observe(el))
+</script>
+</body>
+</html>
