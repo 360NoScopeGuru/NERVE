@@ -222,6 +222,15 @@ function Analyzer() {
     return () => window.removeEventListener('resize', handler)
   }, [])
 
+  useEffect(() => {
+    if (!result) {
+      document.title = 'NERVE — Incident Root Cause Analyzer'
+      return
+    }
+    const name = result.hypotheses?.[0]?.title || result.summary?.split(' ').slice(0, 7).join(' ') || 'Analysis'
+    document.title = `NERVE — ${name.length > 60 ? name.slice(0, 57).trimEnd() + '…' : name}`
+  }, [result])
+
   const handleMouseMove = useCallback((e) => {
     if (rootRef.current) {
       rootRef.current.style.setProperty('--mx', e.clientX / window.innerWidth)
@@ -283,7 +292,8 @@ function Analyzer() {
     }
   }
 
-  const handleLoadFromHistory = (historicResult, cached, logData, scenarioId) => {
+  const handleLoadFromHistory = (historicResult, cached, logData, scenarioId, name) => {
+    if (name) document.title = `NERVE — ${name.length > 60 ? name.slice(0, 57).trimEnd() + '…' : name}`
     setResult(historicResult)
     setFromCache(cached)
     setActiveTab('timeline')

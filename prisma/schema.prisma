@@ -8,16 +8,17 @@ generator client {
 }
 
 model Analysis {
-  id           String   @id @default(cuid())
-  userId       String
-  scenarioId   String?
-  inputSnippet String
-  logData      String?
-  summary      String
+  id            String   @id @default(cuid())
+  userId        String
+  scenarioId    String?
+  inputSnippet  String
+  logData       String?
+  name          String?
+  summary       String
   severityScore Int?
-  result       Json
-  fromCache    Boolean  @default(false)
-  createdAt    DateTime @default(now())
+  result        Json
+  fromCache     Boolean  @default(false)
+  createdAt     DateTime @default(now())
 
   @@index([userId, createdAt(sort: Desc)])
 }

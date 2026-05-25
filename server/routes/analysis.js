@@ -6,6 +6,20 @@ import { analyzeLog } from '../lib/analyzeLog.js'
 const router = Router()
 const prisma = new PrismaClient()
 
+function deriveName(result) {
+  const title = result?.hypotheses?.[0]?.title
+  if (title) return title.length > 60 ? title.slice(0, 57).trimEnd() + '…' : title
+  const summary = (result?.summary || '').trim()
+  if (!summary) return 'Untitled'
+  const words = summary.split(/\s+/)
+  let out = ''
+  for (const w of words) {
+    if (out.length + w.length + 1 > 55) break
+    out += (out ? ' ' : '') + w
+  }
+  return out || 'Untitled'
+}
+
 // POST /api/analyze  — SSE stream: status events then a final result event
 router.post('/analyze', requireAuth(), async (req, res) => {
   const { userId } = req.auth ?? {}
@@ -35,6 +49,7 @@ router.post('/analyze', requireAuth(), async (req, res) => {
           scenarioId: scenarioId || null,
           inputSnippet: logData.slice(0, 200),
           logData,
+          name: deriveName(result),
           summary: result.summary || '',
           severityScore: result.severityScore ?? null,
           result,
@@ -66,6 +81,7 @@ router.get('/history', requireAuth(), async (req, res) => {
         id: true,
         scenarioId: true,
         inputSnippet: true,
+        name: true,
         summary: true,
         severityScore: true,
         fromCache: true,

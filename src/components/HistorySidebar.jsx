@@ -58,7 +58,7 @@ export default function HistorySidebar({ isOpen, onLoadResult, refreshKey, isMob
       })
       if (res.ok) {
         const data = await res.json()
-        onLoadResult(data.result, data.fromCache, data.logData, data.scenarioId)
+        onLoadResult(data.result, data.fromCache, data.logData, data.scenarioId, data.name)
       }
     } finally {
       setLoadingId(null)
@@ -222,9 +222,14 @@ function HistoryEntry({ entry, index, isLoading, onLoad, onDelete }) {
             ×
           </button>
         </div>
-        <p className="text-[10px] font-mono text-nerve-textDim leading-tight line-clamp-2">
-          {entry.summary || entry.inputSnippet}
+        <p className="text-[11px] font-mono font-medium text-nerve-text leading-tight line-clamp-1">
+          {entry.name || entry.summary || entry.inputSnippet}
         </p>
+        {entry.name && entry.summary && (
+          <p className="text-[9px] font-mono text-nerve-muted leading-tight line-clamp-1 mt-0.5">
+            {entry.summary}
+          </p>
+        )}
       </div>
 
       {/* Loading overlay */}
